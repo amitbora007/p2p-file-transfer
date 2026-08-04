@@ -1,0 +1,167 @@
+import { Server as SocketIOServer } from "socket.io";
+import { Server as HTTPServer } from "http";
+import crypto from "crypto";
+
+export interface PeerSession {
+  id: string;
+  peerId: string;
+  displayName: string;
+  createdAt: number;
+  isInitiator: boolean;
+}
+
+export interface SignalingMessage {
+  type: "offer" | "answer" | "ice-candidate";
+  data: any;
+  from: string;
+  to: string;
+}
+
+class WebRTCSignalingService {
+  private io: SocketIOServer;
+  private sessions: Map<string, PeerSession> = new Map();
+  private peerConnections: Map<string, Set<string>> = new Map();
+
+  constructor(httpServer: HTTPServer) {
+    this.io = new SocketIOServer(httpServer, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"],
+      },
+      transports: ["websocket", "polling"],
+    });
+
+    this.setupEventHandlers();
+  }
+
+  private setupEventHandlers() {
+    this.io.on("connection", (socket) => {
+      console.log(`[WebRTC] Client connected: ${socket.id}`);
+
+      socket.on("register-peer", (data: { displayName: string; isInitiator: boolean }, callback) => {
+        const peerId = this.generatePeerId();
+        const session: PeerSession = {
+          id: socket.id,
+          peerId,
+          displayName: data.displayName,
+          createdAt: Date.now(),
+          isInitiator: data.isInitiator,
+        };
+
+        this.sessions.set(socket.id, session);
+        this.peerConnections.set(socket.id, new Set());
+
+        console.log(`[WebRTC] Peer registered: ${peerId} (${data.displayName})`);
+
+        callback({
+          success: true,
+          peerId,
+          sessionId: socket.id,
+        });
+      });
+
+      socket.on("signal", (data: SignalingMessage) => {
+        const fromSession = this.sessions.get(socket.id);
+        if (!fromSession) {
+          console.warn(`[WebRTC] Signal received from unregistered peer: ${socket.id}`);
+          return;
+        }
+
+        // Find the target peer by peerId
+        let targetSocketId: string | null = null;
+        const sessionsArray = Array.from(this.sessions.entries());
+        for (const [socketId, session] of sessionsArray) {
+          if (session.peerId === data.to) {
+            targetSocketId = socketId;
+            break;
+          }
+        }
+
+        if (!targetSocketId) {
+          console.warn(`[WebRTC] Target peer not found: ${data.to}`);
+          socket.emit("signal-error", { message: "Target peer not found" });
+          return;
+        }
+
+        // Track connection
+        const connections = this.peerConnections.get(socket.id);
+        if (connections) {
+          connections.add(targetSocketId);
+        }
+
+        // Forward the signal
+        this.io.to(targetSocketId).emit("signal", {
+          type: data.type,
+          data: data.data,
+          from: fromSession.peerId,
+          fromDisplayName: fromSession.displayName,
+        });
+
+        console.log(`[WebRTC] Signal forwarded: ${fromSession.peerId} -> ${data.to} (${data.type})`);
+      });
+
+      socket.on("get-peer-info", (callback) => {
+        const session = this.sessions.get(socket.id);
+        if (session) {
+          callback({
+            peerId: session.peerId,
+            displayName: session.displayName,
+            isInitiator: session.isInitiator,
+          });
+        }
+      });
+
+      socket.on("disconnect", () => {
+        const session = this.sessions.get(socket.id);
+        if (session) {
+          console.log(`[WebRTC] Peer disconnected: ${session.peerId}`);
+          this.sessions.delete(socket.id);
+          this.peerConnections.delete(socket.id);
+
+          // Notify connected peers
+          const connections = this.peerConnections.get(socket.id);
+          if (connections) {
+            connections.forEach((connectedSocketId) => {
+              this.io.to(connectedSocketId).emit("peer-disconnected", {
+                peerId: session.peerId,
+              });
+            });
+          }
+        }
+      });
+
+      socket.on("error", (error) => {
+        console.error(`[WebRTC] Socket error for ${socket.id}:`, error);
+      });
+    });
+  }
+
+  private generatePeerId(): string {
+    return crypto.randomBytes(6).toString("hex").toUpperCase();
+  }
+
+  public getIO(): SocketIOServer {
+    return this.io;
+  }
+
+  public getPeerInfo(peerId: string): PeerSession | null {
+    const sessionsValues = Array.from(this.sessions.values());
+    for (const session of sessionsValues) {
+      if (session.peerId === peerId) {
+        return session;
+      }
+    }
+    return null;
+  }
+
+  public getActivePeers(): PeerSession[] {
+    const peersArray: PeerSession[] = [];
+    const sessionsValues = Array.from(this.sessions.values());
+    sessionsValues.forEach((session) => {
+      peersArray.push(session);
+    });
+    return peersArray;
+  }
+}
+
+export default WebRTCSignalingService;
