@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { AlertCircle, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { HelpTooltip } from "@/components/HelpTooltip";
 
 interface QRCodeScannerProps {
   onScan: (data: { peerId: string; displayName: string }) => void;
@@ -91,9 +92,12 @@ export function QRCodeScanner({ onScan, onClose }: QRCodeScannerProps) {
   return (
     <Card className="w-full">
       <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle>Scan QR Code</CardTitle>
-          <CardDescription>Point your camera at a QR code to connect</CardDescription>
+        <div className="flex items-center gap-2">
+          <div>
+            <CardTitle>Scan QR Code</CardTitle>
+            <CardDescription>Point your camera at a QR code to connect</CardDescription>
+          </div>
+          <HelpTooltip content="Align the QR code within the green frame. The scanner will automatically detect and connect to the device." side="bottom" />
         </div>
         <Button
           variant="ghost"

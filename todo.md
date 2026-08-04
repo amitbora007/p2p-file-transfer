@@ -35,3 +35,11 @@
 - [x] UI/UX testing across devices (responsive design verified)
 - [x] Performance optimization (STUN servers, chunk-based transfer)
 - [x] Deployment and hosting setup (ready for Manus deployment)
+
+## Enhancement: Inline Help Cards
+- [x] Create HelpTooltip component for contextual help
+- [x] Add help hints to device setup section
+- [x] Add help hints to role selection section
+- [x] Add help hints to QR code generation
+- [x] Add help hints to file transfer interface
+- [x] Add help hints to connection status

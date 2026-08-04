@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { HelpTooltip } from "@/components/HelpTooltip";
 import { TransferProgress } from "@/hooks/useWebRTC";
 
 interface FileTransferInterfaceProps {
@@ -123,11 +124,16 @@ export function FileTransferInterface({
       {/* Send File Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="w-5 h-5" />
-            Send File
-          </CardTitle>
-          <CardDescription>Select and send a file to the connected peer</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Send File
+              </CardTitle>
+              <CardDescription>Select and send a file to the connected peer</CardDescription>
+            </div>
+            <HelpTooltip content="Choose a file from your device and send it directly to the connected peer. The transfer happens peer-to-peer without using a server." />
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition">
@@ -200,11 +206,16 @@ export function FileTransferInterface({
       {/* Receive File Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Download className="w-5 h-5" />
-            Receive File
-          </CardTitle>
-          <CardDescription>Waiting to receive files from the connected peer</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Download className="w-5 h-5" />
+                Receive File
+              </CardTitle>
+              <CardDescription>Waiting to receive files from the connected peer</CardDescription>
+            </div>
+            <HelpTooltip content="Files sent by the connected peer will automatically download to your device. No action needed—just wait for incoming transfers." />
+          </div>
         </CardHeader>
         <CardContent>
           {receivedFileName ? (

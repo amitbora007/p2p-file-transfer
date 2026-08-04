@@ -3,6 +3,7 @@ import { useWebRTC } from "@/hooks/useWebRTC";
 import { QRCodeGenerator } from "@/components/QRCodeGenerator";
 import { QRCodeScanner } from "@/components/QRCodeScanner";
 import { FileTransferInterface } from "@/components/FileTransferInterface";
+import { HelpTooltip } from "@/components/HelpTooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -37,17 +38,20 @@ export default function Home() {
               <p className="text-gray-600 mt-1">Fast, secure file sharing on local networks</p>
             </div>
             <div className="flex items-center gap-2">
-              {connected ? (
-                <Badge variant="default" className="bg-green-600">
-                  <Wifi className="w-3 h-3 mr-1" />
-                  Connected
-                </Badge>
-              ) : (
-                <Badge variant="secondary">
-                  <WifiOff className="w-3 h-3 mr-1" />
-                  Disconnected
-                </Badge>
-              )}
+              <div className="flex items-center gap-1">
+                {connected ? (
+                  <Badge variant="default" className="bg-green-600">
+                    <Wifi className="w-3 h-3 mr-1" />
+                    Connected
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary">
+                    <WifiOff className="w-3 h-3 mr-1" />
+                    Disconnected
+                  </Badge>
+                )}
+              </div>
+              <HelpTooltip content={connected ? "You are connected to a peer. You can now send or receive files." : "Not connected to a peer yet. Generate or scan a QR code to establish a connection."} />
             </div>
           </div>
         </div>
@@ -68,8 +72,13 @@ export default function Home() {
             {/* Device Name Setup */}
             <Card>
               <CardHeader>
-                <CardTitle>Setup Your Device</CardTitle>
-                <CardDescription>Give your device a name for easy identification</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Setup Your Device</CardTitle>
+                    <CardDescription>Give your device a name for easy identification</CardDescription>
+                  </div>
+                  <HelpTooltip content="Choose a memorable name for your device. This name will be visible to other devices when they connect to you." />
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
@@ -88,8 +97,13 @@ export default function Home() {
             {/* Mode Selection */}
             <Card>
               <CardHeader>
-                <CardTitle>Choose Your Role</CardTitle>
-                <CardDescription>Select whether you want to send or receive files</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Choose Your Role</CardTitle>
+                    <CardDescription>Select whether you want to send or receive files</CardDescription>
+                  </div>
+                  <HelpTooltip content="Sender: You initiate the file transfer. Receiver: You wait for files from another device. Both devices need to be on the same WiFi network." />
+                </div>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-4">
                 <Button

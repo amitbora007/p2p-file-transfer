@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { Copy, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { HelpTooltip } from "@/components/HelpTooltip";
 
 interface QRCodeGeneratorProps {
   peerId: string;
@@ -48,8 +49,13 @@ export function QRCodeGenerator({ peerId, displayName }: QRCodeGeneratorProps) {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Your QR Code</CardTitle>
-        <CardDescription>Share this QR code with others to connect</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Your QR Code</CardTitle>
+            <CardDescription>Share this QR code with others to connect</CardDescription>
+          </div>
+          <HelpTooltip content="Share this QR code with another device on the same WiFi network. They can scan it to connect and start transferring files." />
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-6">
         <div className="bg-white p-4 rounded-lg border border-gray-200">
