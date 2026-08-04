@@ -16,15 +16,15 @@ describe("QR Code Components", () => {
     expect(parsed.timestamp).toBeGreaterThan(0);
   });
 
-  it("should validate QR scan data", () => {
-    const scanData = {
-      peerId: "XYZ789ABC123",
-      displayName: "Remote Device",
-    };
+    it("should validate QR scan data", () => {
+      const scanData = {
+        peerId: "XYZ789ABC123",
+        displayName: "Remote Device",
+      };
 
-    const isValid = scanData.peerId && scanData.displayName;
-    expect(isValid).toBe(true);
-  });
+      const isValid = !!(scanData.peerId && scanData.displayName);
+      expect(isValid).toBe(true);
+    });
 
   it("should handle QR code download", () => {
     const fileName = `qr-code-ABC123DEF456.png`;
