@@ -10,10 +10,12 @@ export interface PeerInfo {
 
 export interface TransferProgress {
   fileName: string;
-  progress: number;
-  total: number;
-  speed: number;
-  timeRemaining: number;
+  progress: number; // chunks transferred
+  total: number; // total chunks
+  fileSizeBytes: number; // actual file size in bytes
+  transferredBytes: number; // actual bytes transferred
+  speed: number; // MB/s
+  timeRemaining: number; // seconds
 }
 
 export interface UseWebRTCOptions {
@@ -237,6 +239,8 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
               fileName: file.name,
               progress: sentChunks,
               total: totalChunks,
+              fileSizeBytes: file.size,
+              transferredBytes: sentChunks * chunkSize,
               speed,
               timeRemaining,
             });
@@ -265,11 +269,15 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
         if (message.type === "file-chunk") {
           onChunk(message);
-          const progress = (message.chunkIndex / message.totalChunks) * 100;
+          const chunkSize = 64 * 1024; // 64KB per chunk
+          const fileSizeBytes = message.totalChunks * chunkSize;
+          const transferredBytes = message.chunkIndex * chunkSize;
           setTransferProgress({
             fileName: message.fileName,
             progress: message.chunkIndex,
             total: message.totalChunks,
+            fileSizeBytes,
+            transferredBytes,
             speed: 0,
             timeRemaining: 0,
           });

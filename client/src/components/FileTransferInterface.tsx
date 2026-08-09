@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { HelpTooltip } from "@/components/HelpTooltip";
+import { TransferProgressBar } from "@/components/TransferProgressBar";
 import { TransferProgress } from "@/hooks/useWebRTC";
 
 interface FileTransferInterfaceProps {
@@ -183,21 +184,32 @@ export function FileTransferInterface({
           )}
 
           {transferProgress && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">{transferProgress.fileName}</span>
-                <span className="text-gray-600">
-                  {Math.round((transferProgress.progress / transferProgress.total) * 100)}%
-                </span>
-              </div>
-              <Progress
-                value={(transferProgress.progress / transferProgress.total) * 100}
-                className="h-2"
-              />
-              <div className="flex justify-between text-xs text-gray-600">
-                <span>Speed: {formatSpeed(transferProgress.speed)}</span>
-                <span>Time remaining: {formatTime(transferProgress.timeRemaining)}</span>
-              </div>
+            <TransferProgressBar
+              transfer={transferProgress}
+              onCancel={() => {
+                setSelectedFile(null);
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = "";
+                }
+              }}
+            />
+          )}
+          {!transferProgress && selectedFile && (
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-600 mb-3">Ready to send: {selectedFile.name}</p>
+              <Button
+                onClick={handleSendFile}
+                disabled={!connected}
+                className="w-full"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Send File
+              </Button>
+            </div>
+          )}
+          {!transferProgress && !selectedFile && (
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-600">No file selected</p>
             </div>
           )}
         </CardContent>
