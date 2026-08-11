@@ -43,6 +43,7 @@ A fast, resilient, and secure peer-to-peer file transfer application designed fo
 - 📊 **Directional Progress Filtering**: Independent Send and Receive progress tracking (`direction: "send" | "receive"`) prevents UI duplication and provides accurate MB/s speed and countdown ETA tracking.
 - 🔒 **Screen Wake Lock & Background Keep-Alive**: Uses the Screen Wake Lock API (`navigator.wakeLock`) and silent audio keep-alive loops to prevent mobile devices from sleeping during long file downloads.
 - 📱 **Instant Startup QR & Camera Scanner**: Rendered QR code, Peer ID, and camera scanning support (`jsQR`) allow instant mobile camera auto-connecting.
+- 📦 **Optimized Rollup Code-Splitting**: Configured `manualChunks` vendor splitting (`vendor-react`, `vendor-ui`, `vendor-qr`, `vendor-net`) in `vite.config.ts` to eliminate large bundle warnings and enable parallel browser caching on Vercel deployments.
 - 🧹 **Zero Log Noise**: Pure P2P architecture cleaned of unused cloud/OAuth boilerplate for clean server logs.
 
 ---

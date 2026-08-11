@@ -180,6 +180,28 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("react") || id.includes("wouter")) {
+              return "vendor-react";
+            }
+            if (id.includes("lucide-react") || id.includes("@radix-ui") || id.includes("framer-motion")) {
+              return "vendor-ui";
+            }
+            if (id.includes("qrcode") || id.includes("jsqr")) {
+              return "vendor-qr";
+            }
+            if (id.includes("socket.io") || id.includes("axios")) {
+              return "vendor-net";
+            }
+            return "vendor";
+          }
+        },
+      },
+    },
   },
   server: {
     host: true,
