@@ -100,7 +100,7 @@ export default function Home() {
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
               <div className="flex items-center gap-2.5">
                 {connected ? (
-                  <div className="h-9 px-4 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shadow-2xs">
+                  <div className="h-8 px-3 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300 text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -108,7 +108,7 @@ export default function Home() {
                     Connected
                   </div>
                 ) : (
-                  <div className="h-9 px-4 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-xs sm:text-sm font-medium inline-flex items-center gap-2">
+                  <div className="h-8 px-3 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-xs font-medium inline-flex items-center gap-1.5">
                     <WifiOff className="w-3.5 h-3.5 text-slate-400" />
                     Disconnected
                   </div>
@@ -117,13 +117,14 @@ export default function Home() {
 
               {/* Red Highlighted Professional Disconnect Pill Control */}
               {connected && (
-                <Button
+                <button
+                  type="button"
                   onClick={handleDisconnect}
-                  className="h-9 px-4 rounded-full bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-semibold text-xs sm:text-sm shadow-sm transition-all duration-150 inline-flex items-center justify-center gap-1.5 border border-red-700"
+                  className="h-8 px-3 rounded-full bg-red-50 hover:bg-red-100 active:scale-[0.98] text-red-600 font-semibold text-xs border border-red-500 shadow-2xs transition-all duration-150 inline-flex items-center justify-center gap-1.5 cursor-pointer outline-none"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <LogOut className="w-3.5 h-3.5 text-red-600" />
                   Disconnect
-                </Button>
+                </button>
               )}
 
               <HelpTooltip
@@ -148,10 +149,52 @@ export default function Home() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column: QR Code Generator */}
-          <QRCodeGenerator peerId={peerId} displayName={displayName} serverLanIp={serverLanIp} />
+          {/* Left Column: QR Code Generator & Connect Card */}
+          <div className="space-y-6">
+            <QRCodeGenerator peerId={peerId} displayName={displayName} serverLanIp={serverLanIp} />
 
-          {/* Right Column: Setup, Transfer & Connect Cards */}
+            {/* Connect Card */}
+            {!connected && (
+              <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs hover:shadow-md transition-all duration-200">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg font-bold text-slate-900">Connect to Remote Device</CardTitle>
+                  <CardDescription className="text-xs text-slate-500">Scan a QR code or enter the remote Peer ID manually</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <form onSubmit={handleManualConnect} className="flex flex-col sm:flex-row gap-2.5 w-full">
+                    <input
+                      type="text"
+                      value={manualPeerInput}
+                      onChange={(e) => setManualPeerInput(e.target.value)}
+                      placeholder="Enter Peer ID (e.g., 3F9A12)"
+                      className="w-full sm:flex-1 h-11 px-4 font-mono text-sm font-semibold tracking-wider rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                    />
+                    <Button
+                      type="submit"
+                      disabled={!manualPeerInput.trim()}
+                      className="w-full sm:w-auto h-11 px-6 rounded-xl font-medium text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 shrink-0"
+                    >
+                      Connect
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </form>
+                  <div className="relative flex items-center justify-center border-t border-slate-200/80 pt-4">
+                    <span className="bg-white px-3 text-xs font-semibold text-slate-400 absolute -top-3">OR</span>
+                  </div>
+                  <Button
+                    onClick={() => setShowScanner(true)}
+                    variant="outline"
+                    className="h-11 w-full rounded-xl font-medium text-sm border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 shadow-2xs transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    <Camera className="w-4 h-4 text-slate-500" />
+                    Scan QR Code via Camera
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Right Column: Setup, Transfer & Active Peer Cards */}
           <div className="space-y-6">
             {/* Device Name Setup */}
             <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs hover:shadow-md transition-all duration-200">
@@ -197,46 +240,6 @@ export default function Home() {
               onCancelTransfer={cancelTransfer}
               error={error}
             />
-
-            {/* Connect Card */}
-            {!connected && (
-              <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs hover:shadow-md transition-all duration-200">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg font-bold text-slate-900">Connect to Remote Device</CardTitle>
-                  <CardDescription className="text-xs text-slate-500">Scan a QR code or enter the remote Peer ID manually</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <form onSubmit={handleManualConnect} className="flex flex-col sm:flex-row gap-2.5 w-full">
-                    <input
-                      type="text"
-                      value={manualPeerInput}
-                      onChange={(e) => setManualPeerInput(e.target.value)}
-                      placeholder="Enter Peer ID (e.g., 3F9A12)"
-                      className="w-full sm:flex-1 h-11 px-4 font-mono text-sm font-semibold tracking-wider rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
-                    />
-                    <Button
-                      type="submit"
-                      disabled={!manualPeerInput.trim()}
-                      className="w-full sm:w-auto h-11 px-6 rounded-xl font-medium text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 shrink-0"
-                    >
-                      Connect
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </form>
-                  <div className="relative flex items-center justify-center border-t border-slate-200/80 pt-4">
-                    <span className="bg-white px-3 text-xs font-semibold text-slate-400 absolute -top-3">OR</span>
-                  </div>
-                  <Button
-                    onClick={() => setShowScanner(true)}
-                    variant="outline"
-                    className="h-11 w-full rounded-xl font-medium text-sm border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 shadow-2xs transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-                  >
-                    <Camera className="w-4 h-4 text-slate-500" />
-                    Scan QR Code via Camera
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
 
             {/* Connected Peer Info */}
             {connected && remotePeerInfo && (
