@@ -49,7 +49,7 @@ export default function Home() {
     isInitiator: mode === "sender",
   });
 
-  const handleChangeMode = () => {
+  const handleDisconnect = () => {
     disconnectPeer();
     setMode(null);
   };
@@ -229,8 +229,8 @@ export default function Home() {
                 <h2 className="text-2xl font-bold text-gray-900">Send Files</h2>
                 <p className="text-gray-600">Share your QR code or connect to another device</p>
               </div>
-              <Button variant="outline" onClick={handleChangeMode}>
-                Disconnect & Change Mode
+              <Button variant="outline" onClick={handleDisconnect}>
+                Disconnect
               </Button>
             </div>
 
@@ -320,8 +320,8 @@ export default function Home() {
                 <h2 className="text-2xl font-bold text-gray-900">Receive Files</h2>
                 <p className="text-gray-600">Share your QR code or connect to sender</p>
               </div>
-              <Button variant="outline" onClick={handleChangeMode}>
-                Disconnect & Change Mode
+              <Button variant="outline" onClick={handleDisconnect}>
+                Disconnect
               </Button>
             </div>
 
