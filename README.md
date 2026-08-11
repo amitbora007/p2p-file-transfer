@@ -44,6 +44,7 @@ A fast, resilient, and secure peer-to-peer file transfer application designed fo
 - 🔒 **Screen Wake Lock & Background Keep-Alive**: Uses the Screen Wake Lock API (`navigator.wakeLock`) and silent audio keep-alive loops to prevent mobile devices from sleeping during long file downloads.
 - 📱 **Instant Startup QR & Camera Scanner**: Rendered QR code, Peer ID, and camera scanning support (`jsQR`) allow instant mobile camera auto-connecting.
 - 📦 **Optimized Rollup Code-Splitting**: Configured `manualChunks` vendor splitting (`vendor-react`, `vendor-ui`, `vendor-qr`, `vendor-net`) in `vite.config.ts` to eliminate large bundle warnings and enable parallel browser caching on Vercel deployments.
+- 🛡️ **pnpm v10 Approved Build Dependencies**: Configured `onlyBuiltDependencies` (`@tailwindcss/oxide`, `esbuild`) in `package.json` to eliminate pnpm install build script warnings.
 - 🧹 **Zero Log Noise**: Pure P2P architecture cleaned of unused cloud/OAuth boilerplate for clean server logs.
 
 ---
