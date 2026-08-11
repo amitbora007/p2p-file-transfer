@@ -51,10 +51,11 @@ export function FileTransferInterface({
         (data) => {
           // Handle file complete
           setReceivedChunks((prev) => {
+            const total = data.totalChunks || prev.size;
             const sortedChunks: Uint8Array[] = [];
-            for (let i = 0; i < prev.size; i++) {
-              if (prev.has(i)) {
-                const chunk = prev.get(i)!;
+            for (let i = 0; i < total; i++) {
+              const chunk = prev.get(i);
+              if (chunk) {
                 sortedChunks.push(new Uint8Array(chunk));
               }
             }

@@ -103,6 +103,10 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
   const wakeLockRef = useRef<any>(null);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  const lastAckedChunkIndexRef = useRef<number>(-1);
+  const resumeFromChunkRef = useRef<number | null>(null);
+  const lastReceivedChunkIndexRef = useRef<number>(-1);
+
   const onChunkRef = useRef<((data: any) => void) | null>(null);
   const onCompleteRef = useRef<((data: any) => void) | null>(null);
 
@@ -244,11 +248,20 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
   const handleIncomingMessage = useCallback((message: any) => {
     if (!message) return;
     if (message.type === "file-chunk") {
+      lastReceivedChunkIndexRef.current = message.chunkIndex;
       if (onChunkRef.current) {
         onChunkRef.current(message);
       }
       if (receiveStartTimeRef.current === null || message.chunkIndex === 0) {
         receiveStartTimeRef.current = Date.now();
+      }
+
+      // Send ACK back to sender every 8 chunks or on final chunk
+      if (message.chunkIndex % 8 === 0 || message.chunkIndex === message.totalChunks - 1) {
+        sendDataToPeer({
+          type: "chunk-ack",
+          lastChunkIndex: message.chunkIndex,
+        });
       }
 
       const chunkSize = 64 * 1024;
@@ -269,8 +282,17 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         timeRemaining,
         direction: "receive",
       });
+    } else if (message.type === "chunk-ack") {
+      if (typeof message.lastChunkIndex === "number") {
+        lastAckedChunkIndexRef.current = message.lastChunkIndex;
+      }
+    } else if (message.type === "request-resume") {
+      const resumeFrom = typeof message.lastReceivedChunkIndex === "number" ? message.lastReceivedChunkIndex + 1 : 0;
+      console.log(`[WebRTC Auto-Resume] Peer requested resume from chunk #${resumeFrom}`);
+      resumeFromChunkRef.current = resumeFrom;
     } else if (message.type === "file-complete") {
       receiveStartTimeRef.current = null;
+      lastReceivedChunkIndexRef.current = -1;
       if (onCompleteRef.current) {
         onCompleteRef.current(message);
       }
@@ -582,6 +604,16 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       remoteIdRef.current = data.peerId;
       setConnected(true);
       setError("");
+
+      // If receiver was downloading a file when connection re-established,
+      // request automatic resume from the last received chunk!
+      if (lastReceivedChunkIndexRef.current >= 0) {
+        console.log(`[WebRTC Auto-Resume] Peer connected! Requesting resume from chunk #${lastReceivedChunkIndexRef.current + 1}`);
+        sendDataToPeer({
+          type: "request-resume",
+          lastReceivedChunkIndex: lastReceivedChunkIndexRef.current,
+        });
+      }
     });
 
     socket.on("peer-disconnected", (data: any) => {
@@ -688,7 +720,19 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         return isCancelledRef.current;
       };
 
+      lastAckedChunkIndexRef.current = -1;
+      resumeFromChunkRef.current = null;
+
       const sendChunk = async (start: number) => {
+        // Auto-resume check: if peer requested a resume from chunk index N
+        if (resumeFromChunkRef.current !== null) {
+          const resumeIdx = resumeFromChunkRef.current;
+          resumeFromChunkRef.current = null;
+          sentChunks = resumeIdx;
+          start = resumeIdx * chunkSize;
+          console.log(`[WebRTC Auto-Resume] Resuming sender stream at chunk #${resumeIdx} (${start} bytes)`);
+        }
+
         if (isCancelledRef.current) {
           console.log("[WebRTC] Transfer cancelled by user");
           setTransferProgress(null);
@@ -712,10 +756,25 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
             type: "file-complete",
             fileName: file.name,
             fileSize: file.size,
+            totalChunks,
           });
           setTransferProgress(null);
           console.log(`[WebRTC] File transfer complete: ${file.name}`);
           return;
+        }
+
+        // Window ACK Rate Control for WebSocket relay mode (prevents blasting into disconnected peer)
+        const isP2pOpen = dataChannelRef.current?.readyState === "open";
+        if (!isP2pOpen && sentChunks > 0 && sentChunks % 16 === 0) {
+          let waitAckMs = 0;
+          while (
+            sentChunks - lastAckedChunkIndexRef.current > 16 &&
+            waitAckMs < 2000 &&
+            !isCancelledRef.current
+          ) {
+            await new Promise((r) => setTimeout(r, 100));
+            waitAckMs += 100;
+          }
         }
 
         // WebRTC DataChannel flow control if channel is open
