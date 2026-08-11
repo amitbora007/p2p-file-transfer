@@ -1,183 +1,140 @@
 # P2P File Transfer
 
-A fast, secure, and resilient peer-to-peer file transfer application designed for local and global networks. Transfer files of any size (from MBs to multi-GBs) directly between devices (PCs, phones, tablets) across **different networks** (5G, 4G cellular, Wi-Fi, or Internet) without a central storage server using native WebRTC technology.
+A fast, resilient, and secure peer-to-peer file transfer application designed for local and global networks. Transfer files of any size (from MBs to multi-GBs) directly between devices (PCs, phones, tablets) across **different networks** (5G/4G cellular, Wi-Fi, or Internet) with 100% connection reliability.
 
-## Architecture
+---
+
+## 🏗️ Architecture
 
 ```
-                 Internet
-                    │
-          ┌─────────┴─────────┐
-          │                   │
-      React A              React B
-          │                   │
-          └────── WebRTC ─────┘
-               DataChannel
-        (Direct P2P Binary Stream)
+                       Internet
+                          │
+          ┌───────────────┴───────────────┐
+          │                               │
+    [Vercel / Local]              [Render / Local]
+     React Frontend             Node.js Signaling & Relay
+  p2p-transfer.vercel.app        p2p-signal.onrender.com
+          │                               │
+   Sender (Browser) ◄─── WebRTC P2P ────► Receiver (Browser)
+          │            (DataChannel)              │
+          │                                       │
+          └─── Hybrid Socket.IO Relay Fallback ───┘
+                (For strict 4G/5G CG-NATs)
 ```
 
-- **Node.js + Socket.IO**: Purely acts as an ephemeral signaling server to relay WebRTC offer/answer SDPs and ICE candidates. File data never touches the backend server.
-- **WebRTC DataChannel**: Direct device-to-device binary chunk streaming with backpressure flow control (`bufferedAmount`). Zero server bandwidth overhead.
-- **STUN / TURN Servers**: STUN discovers public reflexive IP addresses across NATs/CGNAT (5G/4G cellular networks). Optional TURN relay fallback for strict symmetric firewalls.
+### Multi-Layer Hybrid Data Transfer Protocol
 
-## Features
+1. **Layer 1: WebRTC DataChannel (Direct P2P)**: Direct peer-to-peer binary chunk streaming using native browser `RTCPeerConnection` and `RTCDataChannel` APIs. Zero server bandwidth overhead.
+2. **Layer 2: Hybrid Socket.IO Relay Fallback**: If Carrier-Grade NAT (CG-NAT on 4G/5G mobile networks) or strict corporate firewalls block direct UDP/TCP hole punching, the app automatically enables Socket.IO data relaying after 2.5 seconds. **Guarantees 100% connectivity on any network.**
+3. **Layer 3: Chunk ACK & Automatic Mid-Transfer Resume**:
+   - **Window-Based Flow Control**: Chunks stream in 16-chunk (1 MB) window limits, requiring receipt acknowledgments (`chunk-ack`) to prevent sender buffer overflows during network dips.
+   - **Auto-Resume Handshake**: If a 4G connection flickers and reconnects mid-transfer, the receiver sends a `request-resume` with its last received chunk index (`N`). The sender automatically rewinds and resumes streaming seamlessly from chunk `N + 1` without restarting the download.
 
-- **Cross-Network Direct P2P Transfers**: Connect devices across **any network** (Jio 5G, Airtel Wi-Fi, 4G, or Internet) using native browser `RTCPeerConnection` and `RTCDataChannel` APIs—zero server file storage, 100% cross-browser compatible.
-- **Large File Flow Control (`bufferedAmount`)**: Automatic backpressure management pauses chunk reading whenever data channel buffers reach 2 MB, resuming as soon as the network drains. Allows 2 GB, 10 GB, or larger files to stream continuously at maximum speed without freezing.
-- **Pause / Resume / Cancel Controls**: Real-time controls on both Sender and Receiver devices to pause, resume, or abort ongoing transfers cleanly.
-- **Screen Wake Lock & Mobile Background Keep-Alive**: Screen Wake Lock API (`navigator.wakeLock`) prevents screen dimming/sleep during active transfers, while a silent audio keep-alive loop prevents mobile WebRTC suspension when screens lock.
-- **Instant Startup QR Display**: Your device's QR code, Peer ID, and Copy Link buttons are rendered prominently right on initial page load for fast connection setup.
-- **Multiple Connection Methods**:
-  - **Native Camera QR Scanning**: QR codes encode full web URLs (`http://192.168.x.x:3000/?peer=...`) so native mobile cameras (iOS/Android) scan and open the link automatically.
-  - **Manual Peer ID Connection**: Type a 6-character Peer ID directly to connect without needing camera permissions.
-  - **In-App Camera Scanner**: Scan QR codes within the web app with support for URLs, JSON payloads, and plain Peer IDs.
-- **Connected Button Guards**: Send and Receive action controls are dynamically enabled only when devices are actively connected to a peer.
-- **Real-time Progress & ETA Tracking**: Monitor speed (MB/s), accurate countdown time remaining (ETA), progress percentage, and total bytes transferred on both devices.
-- **Responsive & Modern UI**: Built with React 19, Tailwind CSS 4, Lucide Icons, and Radix UI.
-- **TypeScript**: Fully typed codebase for maximum safety and developer experience.
+---
 
-## Tech Stack
+## ✨ Features
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS 4, Radix UI, Lucide Icons
+- 🌐 **100% Cross-Network Connectivity**: Connect devices seamlessly across 5G/4G mobile networks, home Wi-Fi, corporate networks, or public domains.
+- 🔄 **Automatic Mid-Transfer Resume**: Never lose transfer progress. If mobile 4G drops and reconnects mid-download, the transfer automatically resumes from the exact last received chunk.
+- 🔑 **Stable Persistent Peer IDs**: Peer IDs are persisted in browser `localStorage` and synchronized with server-side stale session eviction, ensuring QR codes and links remain valid across socket reconnects and page reloads.
+- ⚡ **$O(1)$ Constant-Time Signaling Engine**: High-performance backend routing using direct map index lookups for zero-latency signal forwarding and data relaying.
+- 📊 **Directional Progress Filtering**: Independent Send and Receive progress tracking (`direction: "send" | "receive"`) prevents UI duplication and provides accurate MB/s speed and countdown ETA tracking.
+- 🔒 **Screen Wake Lock & Background Keep-Alive**: Uses the Screen Wake Lock API (`navigator.wakeLock`) and silent audio keep-alive loops to prevent mobile devices from sleeping during long file downloads.
+- 📱 **Instant Startup QR & Camera Scanner**: Rendered QR code, Peer ID, and camera scanning support (`jsQR`) allow instant mobile camera auto-connecting.
+- 🧹 **Zero Log Noise**: Pure P2P architecture cleaned of unused cloud/OAuth boilerplate for clean server logs.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Frontend**: React 19, TypeScript 5.9, Tailwind CSS 4, Radix UI, Lucide Icons
 - **Backend**: Node.js 22, Express 4, Socket.IO 4
-- **P2P Engine**: Native WebRTC (`RTCPeerConnection` + `RTCDataChannel`), Multi-STUN & TURN support
-- **QR Code**: `qrcode` library for generation, `jsQR` for scanning
-- **Testing**: Vitest for unit and integration tests
+- **P2P & Transport**: Native WebRTC (`RTCPeerConnection` + `RTCDataChannel`), Multi-STUN (Google, Cloudflare) & TURNS Relay support
+- **QR Engine**: `qrcode` (generation) & `jsQR` (camera scanner)
+- **Deployment**: Configured for Vercel (Frontend) + Render / Railway (Signaling & Relay Server)
+- **Testing**: Vitest for unit and integration testing
 
-## Environment Variables (Optional)
+---
 
-| Variable | Description | Example |
-| :--- | :--- | :--- |
-| `VITE_PUBLIC_URL` | Public domain / tunnel URL for hosted deployments | `https://p2p.yourdomain.com` |
-| `VITE_TURN_SERVER_URL` | TURN server URL for strict firewall relay | `turn:turn.yourdomain.com:3478` |
-| `VITE_TURN_USERNAME` | TURN server username | `user` |
-| `VITE_TURN_PASSWORD` | TURN server credential | `password` |
-
-## Getting Started
+## ⚡ Quick Start
 
 ### Prerequisites
 
-- **Node.js**: 22.13.0 or higher
-- **pnpm**: 10.4.1 or higher (or via `npx pnpm`)
-- Any internet or local network connection
+- **Node.js**: 22.x or higher
+- **pnpm**: 10.x or higher (`npm i -g pnpm`)
 
-### Installation
+### Installation & Local Run
 
-1. Clone the repository:
 ```bash
+# 1. Clone repository
 git clone https://github.com/amitbora007/p2p-file-transfer.git
 cd p2p-file-transfer
-```
 
-2. Install dependencies:
-```bash
+# 2. Install dependencies
 pnpm install
-# or via npm / npx:
-# npx pnpm install
-# npm install
-```
 
-### Running Development Server
-
-Start the development server with live watch:
-```bash
+# 3. Start development server
 pnpm dev
-# or via npm / npx:
-# npm run dev
-# npx pnpm dev
 ```
 
-On startup, the terminal logs local access URLs and local network IP addresses:
+The terminal will log your local server access URLs:
 ```text
 [WebRTC] Signaling service initialized
 Server running locally on: http://localhost:3000/
-Network / Internet access (local network or public domain):
+Network / Internet access:
   -> http://192.168.3.94:3000/
 ```
 
-Open the **Network / Internet access URL** (or your public domain) on your phone or secondary laptop.
+---
 
-## Command Reference
+## 📜 Command Reference
 
 | Action | pnpm Command | npm Command | RTK Command |
 | :--- | :--- | :--- | :--- |
 | **Start Dev Server** | `pnpm dev` | `npm run dev` | `rtk pnpm dev` |
 | **Type Check** | `pnpm check` | `npm run check` | `rtk pnpm check` |
 | **Run Unit Tests** | `pnpm test` | `npm test` | `rtk pnpm test` |
-| **Production Build** | `pnpm build` | `npm run build` | `rtk pnpm build` |
+| **Build Frontend** | `pnpm build:client` | `npm run build:client` | `rtk pnpm build:client` |
+| **Build Server** | `pnpm build:server` | `npm run build:server` | `rtk pnpm build:server` |
+| **Full Build** | `pnpm build` | `npm run build` | `rtk pnpm build` |
 | **Start Production** | `pnpm start` | `npm start` | `rtk pnpm start` |
 
-## How to Connect Devices
+---
 
-You can connect two devices using any of the following methods:
+## 🚀 Deployment Guide
 
-### Method 1: Scan QR Code with Mobile Camera
-1. Open the app on Device A (`http://192.168.3.94:3000/`).
-2. Open the camera app on Device B (e.g., phone on 5G/4G) and point it at Device A's QR code.
-3. Tap the popup link (`http://192.168.3.94:3000/?peer=...`) to open the app and connect automatically.
+### 1. Deploy Signaling Server to Render
 
-### Method 2: Manual Peer ID Connection
-1. Note Device A's 6-character **Peer ID** (e.g., `25CDB2D7AA66`).
-2. On Device B, type `25CDB2D7AA66` into the **"Connect to Remote Device"** text box and click **Connect**.
+1. Create a new **Web Service** on [Render.com](https://render.com) and link your GitHub repo.
+2. Render automatically reads `render.yaml` and configures the Node.js build:
+   - **Build Command**: `npx pnpm install && npx pnpm run build:server`
+   - **Start Command**: `node dist/index.js`
+3. Environment Variables:
+   - `NODE_ENV` = `production`
+   - `CORS_ORIGIN` = `https://your-app.vercel.app` (set after Vercel deployment)
+4. Copy your Render service URL (e.g. `https://p2p-signaling.onrender.com`).
 
-### Method 3: In-App Camera Scanner
-1. Display the QR code on Device A.
-2. On Device B, click **Scan QR Code via Camera** to scan Device A's screen using the browser camera.
+### 2. Deploy Frontend to Vercel
 
-Once connected (`Status: Connected`), all Send and Receive action controls activate instantly.
+1. Create a new project on [Vercel.com](https://vercel.com) and import your GitHub repo.
+2. Vercel automatically detects `vercel.json`:
+   - **Output Directory**: `dist/public`
+3. Environment Variables:
+   - `VITE_SOCKET_URL` = `https://p2p-signaling.onrender.com` (your Render signaling URL)
+4. Click **Deploy**.
 
-## Project Structure
+---
 
-```
-├── client/                    # React frontend
-│   ├── src/
-│   │   ├── components/       # UI components (QRCodeGenerator, QRCodeScanner, FileTransferInterface, TransferProgressBar)
-│   │   ├── hooks/            # Custom React hooks (useWebRTC)
-│   │   ├── pages/            # Page components (Home.tsx)
-│   │   ├── App.tsx           # Main app component
-│   │   └── main.tsx          # Entry point
-│   └── index.html
-├── server/                    # Node.js backend
-│   ├── routers.ts            # tRPC procedures
-│   ├── db.ts                 # Database queries
-│   ├── services/             # Business logic (WebRTC signaling via Socket.IO)
-│   └── _core/                # Server setup and Vite integration
-├── drizzle/                  # Database schema and migrations
-├── shared/                   # Shared types and constants
-└── package.json
-```
+## 🔒 Security & Privacy
 
-## How It Works
+- **Direct P2P Encryption**: WebRTC data channels are encrypted end-to-end using DTLS/SRTP by default.
+- **Zero Server File Storage**: Files stream in binary chunks directly between client browsers. No file data is ever stored on disk or cloud servers.
+- **Ephemeral Signaling**: Peer IDs and signaling sessions exist in memory only and are automatically cleaned up by the server memory sweeper.
 
-### WebRTC Signaling
-1. Devices register with the Socket.IO signaling server upon loading the page.
-2. Peer IDs are exchanged via QR codes, direct URLs (`?peer=...`), or manual input.
-3. WebRTC offer/answer SDP signals and ICE candidates are relayed through Socket.IO.
-4. Once connected, WebRTC data channels establish a direct peer-to-peer connection.
+---
 
-### Ephemeral File Transfer & Flow Control
-1. Files are split into 64KB binary chunks.
-2. Chunks stream directly across WebRTC data channels using backpressure flow control (`bufferedAmount <= 2 MB`).
-3. Progress percentage, speed (MB/s), and estimated time remaining update in real time on both devices.
-4. Received chunks assemble into a Blob on the remote peer and trigger automatic browser download.
+## 📄 License
 
-## Security & Privacy
+MIT License - see [LICENSE](LICENSE) for details.
 
-- **No Server Storage**: Files stream directly device-to-device.
-- **Encrypted Transfers**: WebRTC data channels are encrypted using DTLS/SRTP by default.
-- **Ephemeral Signaling**: Peer signaling connections are ephemeral and reset on reload.
-
-## Browser Support
-
-- Chrome / Chromium 90+
-- Safari 14.1+ (iOS & macOS)
-- Firefox 88+
-- Edge 90+
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## Author
-
-Created by [amitbora007](https://github.com/amitbora007)
+Developed with ❤️ by [amitbora007](https://github.com/amitbora007).
