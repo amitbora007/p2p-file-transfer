@@ -35,6 +35,8 @@ A fast, resilient, and secure peer-to-peer file transfer application designed fo
 ## ✨ Features
 
 - 🌐 **100% Cross-Network Connectivity**: Connect devices seamlessly across 5G/4G mobile networks, home Wi-Fi, corporate networks, or public domains.
+- 🎨 **Unified P2P Interface**: Removed separate role selection ("Choose Your Role") for an instant, friction-free landing experience with integrated Send, Receive, and Session History.
+- 🔴 **Highlighted Red Disconnect Control**: Prominent red action button (`LogOut` icon) in the header when connected, allowing instant, clean session termination.
 - 🔌 **Explicit Session Disconnect & Peer ID Regeneration**: Clicking the single "Disconnect" button (`handleDisconnect`) cleanly closes active WebRTC data channels, sends an `explicit-disconnect` signal to the paired device, generates brand new Peer IDs and QR codes on both devices, clears URL parameters (`?peer=...`), and resets session states to prevent unwanted automatic reconnections.
 - 📋 **Session Transmission History**: Dedicated History tab tracking all file transfers performed during a session between paired devices, complete with file sizes, direction badges (`Sent` / `Received`), status badges (`Completed`, `Failed`, `Cancelled`), timestamps, and single-click history log cleanup.
 - 🔄 **Automatic Mid-Transfer Resume**: Never lose transfer progress. If mobile 4G drops and reconnects mid-download, the transfer automatically resumes from the exact last received chunk.
