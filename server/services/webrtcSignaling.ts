@@ -56,11 +56,12 @@ class WebRTCSignalingService {
     this.io.on("connection", (socket) => {
       console.log(`[WebRTC] Client connected: ${socket.id}`);
 
-      socket.on("register-peer", (data: { displayName: string; isInitiator: boolean }, callback) => {
+      socket.on("register-peer", (data: { displayName: string; isInitiator: boolean; preferredPeerId?: string }, callback) => {
         let session = this.sessions.get(socket.id);
         let peerId: string;
 
         if (session) {
+          // Existing session — update display name in-place
           const nameChanged = session.displayName !== data.displayName;
           session.displayName = data.displayName;
           session.isInitiator = data.isInitiator;
@@ -69,7 +70,14 @@ class WebRTCSignalingService {
             console.log(`[WebRTC] Peer name updated: ${peerId} (${data.displayName})`);
           }
         } else {
-          peerId = this.generatePeerId();
+          // New connection — try to reuse the client's stable preferred Peer ID
+          const preferred = data.preferredPeerId;
+          const isPreferredTaken = preferred
+            ? Array.from(this.sessions.values()).some(s => s.peerId === preferred)
+            : false;
+
+          peerId = (preferred && !isPreferredTaken) ? preferred : this.generatePeerId();
+
           session = {
             id: socket.id,
             peerId,

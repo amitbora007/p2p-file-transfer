@@ -415,18 +415,45 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
     socketRef.current = socket;
 
+    // --- Stable Peer ID across reconnects & server restarts ---
+    // Generate once per browser and store in localStorage so the same Peer ID
+    // is reused even if Render/server restarts or the socket reconnects.
+    const PEER_ID_KEY = "p2p_stable_peer_id";
+    const getOrCreateStablePeerId = (): string => {
+      let id = localStorage.getItem(PEER_ID_KEY);
+      if (!id) {
+        // Generate a 12-char hex ID matching the server format
+        id = Array.from(crypto.getRandomValues(new Uint8Array(6)))
+          .map(b => b.toString(16).padStart(2, "0").toUpperCase())
+          .join("");
+        localStorage.setItem(PEER_ID_KEY, id);
+      }
+      return id;
+    };
+
+    const stablePeerId = getOrCreateStablePeerId();
+    // Set peer ID immediately so QR code renders without waiting for server
+    setPeerId(stablePeerId);
+    peerIdRef.current = stablePeerId;
+
     const registerPeer = () => {
       const { displayName: curName, isInitiator: curInit } = optionsRef.current;
-      socket.emit("register-peer", { displayName: curName, isInitiator: curInit }, (response: any) => {
-        if (response?.success) {
-          setPeerId(response.peerId);
-          peerIdRef.current = response.peerId;
-          if (response.lanIps && response.lanIps.length > 0) {
-            setServerLanIp(response.lanIps[0]);
+      socket.emit(
+        "register-peer",
+        { displayName: curName, isInitiator: curInit, preferredPeerId: stablePeerId },
+        (response: any) => {
+          if (response?.success) {
+            // Server may return the preferred ID or a new one (if preferred was taken)
+            setPeerId(response.peerId);
+            peerIdRef.current = response.peerId;
+            localStorage.setItem(PEER_ID_KEY, response.peerId);
+            if (response.lanIps && response.lanIps.length > 0) {
+              setServerLanIp(response.lanIps[0]);
+            }
+            console.log(`[WebRTC] Registered with peerId: ${response.peerId}`);
           }
-          console.log(`[WebRTC] Registered with peerId: ${response.peerId}`);
         }
-      });
+      );
     };
 
     socket.on("connect", () => {
