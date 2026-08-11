@@ -29,6 +29,7 @@ export default function Home() {
   }, [displayNameInput]);
 
   const {
+    isRegistered,
     peerId,
     serverLanIp,
     connected,
@@ -48,14 +49,16 @@ export default function Home() {
   });
 
   // Auto-connect if URL contains ?peer=XYZ
+  // IMPORTANT: wait until isRegistered=true so the socket is registered on
+  // the server before sending any WebRTC signals.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const targetPeer = params.get("peer") || params.get("peerId");
-    if (targetPeer && peerId && !connected) {
+    if (targetPeer && isRegistered && !connected) {
       if (!mode) setMode("receiver");
       connectToPeer(targetPeer);
     }
-  }, [peerId, connected, mode, connectToPeer]);
+  }, [isRegistered, connected, mode, connectToPeer]);
 
   const handleScanQR = (data: { peerId: string; displayName: string }) => {
     setShowScanner(false);

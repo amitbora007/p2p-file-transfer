@@ -87,6 +87,10 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
   const peerIdRef = useRef<string>("");
   peerIdRef.current = peerId;
 
+  // isRegistered = true only AFTER server confirms register-peer
+  // This prevents sending signals before the server knows who we are
+  const [isRegistered, setIsRegistered] = useState(false);
+
   const [serverLanIp, setServerLanIp] = useState<string>("");
   const [connected, setConnected] = useState(false);
   const [remotePeerInfo, setRemotePeerInfo] = useState<PeerInfo | null>(null);
@@ -432,11 +436,12 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     };
 
     const stablePeerId = getOrCreateStablePeerId();
-    // Set peer ID immediately so QR code renders without waiting for server
-    setPeerId(stablePeerId);
-    peerIdRef.current = stablePeerId;
+    // NOTE: do NOT set peerId here — wait for server confirmation.
+    // Setting it early caused a race where auto-connect fired signals
+    // before the socket was registered on the server (signals dropped).
 
     const registerPeer = () => {
+      setIsRegistered(false);
       const { displayName: curName, isInitiator: curInit } = optionsRef.current;
       socket.emit(
         "register-peer",
@@ -450,6 +455,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
             if (response.lanIps && response.lanIps.length > 0) {
               setServerLanIp(response.lanIps[0]);
             }
+            setIsRegistered(true); // ← only NOW is it safe to send signals
             console.log(`[WebRTC] Registered with peerId: ${response.peerId}`);
           }
         }
@@ -706,6 +712,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
   return {
     peerId,
+    isRegistered,
     serverLanIp,
     connected,
     remotePeerInfo,
