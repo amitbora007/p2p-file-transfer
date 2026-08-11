@@ -712,7 +712,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       // 2. Relay fallback timer: if direct P2P data channel fails to open in 2.5s
       // (due to carrier CG-NAT blocking STUN/TURN), set connected=true so WebSocket relay enables seamlessly!
       setTimeout(() => {
-        if (!connected) {
+        if (!connected && remoteIdRef.current === targetPeerId) {
           console.log("[WebRTC Relay] Enabling Socket.IO relay mode for cross-network connection");
           setConnected(true);
           setError("");
