@@ -92,28 +92,28 @@ export default function Home() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 {connected ? (
-                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200/80 px-3 py-1.5 text-xs font-semibold rounded-full flex items-center gap-2 shadow-2xs">
+                  <div className="h-9 px-4 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 shadow-2xs">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
                     Connected
-                  </Badge>
+                  </div>
                 ) : (
-                  <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-200 px-3 py-1.5 text-xs font-medium rounded-full flex items-center gap-2">
+                  <div className="h-9 px-4 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-xs sm:text-sm font-medium inline-flex items-center gap-2">
                     <WifiOff className="w-3.5 h-3.5 text-slate-400" />
                     Disconnected
-                  </Badge>
+                  </div>
                 )}
               </div>
 
-              {/* Red Highlighted Professional Disconnect Control */}
+              {/* Red Highlighted Professional Disconnect Pill Control */}
               {connected && (
                 <Button
                   onClick={handleDisconnect}
-                  className="h-9 px-4 rounded-xl bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-medium text-xs sm:text-sm shadow-sm transition-all duration-150 flex items-center justify-center gap-2 border border-red-700"
+                  className="h-9 px-4 rounded-full bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-semibold text-xs sm:text-sm shadow-sm transition-all duration-150 inline-flex items-center justify-center gap-1.5 border border-red-700"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   Disconnect
