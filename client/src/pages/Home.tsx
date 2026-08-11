@@ -12,10 +12,21 @@ import { AlertCircle, Wifi, WifiOff } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Home() {
+  const [displayNameInput, setDisplayNameInput] = useState("My Device");
   const [displayName, setDisplayName] = useState("My Device");
   const [mode, setMode] = useState<"sender" | "receiver" | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [manualPeerInput, setManualPeerInput] = useState("");
+
+  // Debounce display name updates to prevent firing socket emissions on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (displayNameInput.trim()) {
+        setDisplayName(displayNameInput.trim());
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [displayNameInput]);
 
   const {
     peerId,
@@ -121,8 +132,11 @@ export default function Home() {
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
+                      value={displayNameInput}
+                      onChange={(e) => setDisplayNameInput(e.target.value)}
+                      onBlur={() => {
+                        if (displayNameInput.trim()) setDisplayName(displayNameInput.trim());
+                      }}
                       placeholder="Enter device name"
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />

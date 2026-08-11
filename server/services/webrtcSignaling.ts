@@ -53,19 +53,31 @@ class WebRTCSignalingService {
       console.log(`[WebRTC] Client connected: ${socket.id}`);
 
       socket.on("register-peer", (data: { displayName: string; isInitiator: boolean }, callback) => {
-        const peerId = this.generatePeerId();
-        const session: PeerSession = {
-          id: socket.id,
-          peerId,
-          displayName: data.displayName,
-          createdAt: Date.now(),
-          isInitiator: data.isInitiator,
-        };
+        let session = this.sessions.get(socket.id);
+        let peerId: string;
 
-        this.sessions.set(socket.id, session);
-        this.peerConnections.set(socket.id, new Set());
+        if (session) {
+          const nameChanged = session.displayName !== data.displayName;
+          session.displayName = data.displayName;
+          session.isInitiator = data.isInitiator;
+          peerId = session.peerId;
+          if (nameChanged) {
+            console.log(`[WebRTC] Peer name updated: ${peerId} (${data.displayName})`);
+          }
+        } else {
+          peerId = this.generatePeerId();
+          session = {
+            id: socket.id,
+            peerId,
+            displayName: data.displayName,
+            createdAt: Date.now(),
+            isInitiator: data.isInitiator,
+          };
 
-        console.log(`[WebRTC] Peer registered: ${peerId} (${data.displayName})`);
+          this.sessions.set(socket.id, session);
+          this.peerConnections.set(socket.id, new Set());
+          console.log(`[WebRTC] Peer registered: ${peerId} (${data.displayName})`);
+        }
 
         if (typeof callback === "function") {
           callback({
