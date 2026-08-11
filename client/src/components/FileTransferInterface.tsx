@@ -452,19 +452,19 @@ export function FileTransferInterface({
                   {history.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between p-3.5 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100/80 transition"
+                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 hover:bg-slate-100/60 transition-all"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`p-2 rounded-full ${item.direction === "send" ? "bg-blue-100 text-blue-600" : "bg-purple-100 text-purple-600"}`}>
+                      <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto">
+                        <div className={`p-2 rounded-xl shrink-0 ${item.direction === "send" ? "bg-blue-100/80 text-blue-600" : "bg-purple-100/80 text-purple-600"}`}>
                           {item.direction === "send" ? (
                             <ArrowUpRight className="w-4 h-4" />
                           ) : (
                             <ArrowDownLeft className="w-4 h-4" />
                           )}
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm text-gray-900 truncate">{item.fileName}</p>
-                          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-sm text-slate-900 truncate">{item.fileName}</p>
+                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                             <span>{formatBytes(item.fileSize)}</span>
                             <span>•</span>
                             <span>{item.timestamp}</span>
@@ -472,21 +472,21 @@ export function FileTransferInterface({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto justify-end border-t sm:border-t-0 border-slate-200/60 pt-2 sm:pt-0">
                         <Badge
                           variant="outline"
                           className={
                             item.direction === "send"
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : "bg-purple-50 text-purple-700 border-purple-200"
+                              ? "bg-blue-50 text-blue-700 border-blue-200/80"
+                              : "bg-purple-50 text-purple-700 border-purple-200/80"
                           }
                         >
                           {item.direction === "send" ? "Sent" : "Received"}
                         </Badge>
 
                         {item.status === "completed" && (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-green-600" />
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                             Completed
                           </Badge>
                         )}

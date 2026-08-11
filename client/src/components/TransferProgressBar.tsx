@@ -122,22 +122,22 @@ export function TransferProgressBar({
       </div>
 
       {/* Detailed Stats */}
-      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-blue-200">
-        <div className="text-center">
-          <p className="text-xs text-gray-600">Upload Speed</p>
-          <p className="text-sm font-semibold text-gray-900">
+      <div className="grid grid-cols-3 gap-1 sm:gap-2 pt-2 border-t border-blue-200 text-center">
+        <div className="text-center min-w-0">
+          <p className="text-[10px] sm:text-xs text-gray-600 truncate">Upload Speed</p>
+          <p className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
             {formatSpeed(transfer.speed)}
           </p>
         </div>
-        <div className="text-center">
-          <p className="text-xs text-gray-600">Time Left</p>
-          <p className="text-sm font-semibold text-gray-900">
+        <div className="text-center min-w-0">
+          <p className="text-[10px] sm:text-xs text-gray-600 truncate">Time Left</p>
+          <p className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
             {formatTime(transfer.timeRemaining)}
           </p>
         </div>
-        <div className="text-center">
-          <p className="text-xs text-gray-600">Progress</p>
-          <p className="text-sm font-semibold text-gray-900">
+        <div className="text-center min-w-0">
+          <p className="text-[10px] sm:text-xs text-gray-600 truncate">Progress</p>
+          <p className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
             {Math.round(progressPercent)}%
           </p>
         </div>

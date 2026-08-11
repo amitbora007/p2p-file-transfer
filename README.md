@@ -35,6 +35,7 @@ A fast, resilient, and secure peer-to-peer file transfer application designed fo
 ## ✨ Features
 
 - 🌐 **100% Cross-Network Connectivity**: Connect devices seamlessly across 5G/4G mobile networks, home Wi-Fi, corporate networks, or public domains.
+- 📱 **100% Multi-Device Responsive Architecture**: Fluid layouts, responsive camera viewfinders, auto-wrapping history badges, and adaptive breakpoints tested across 320px small phones, tablets, and 4K desktop screens.
 - ✨ **Executive UI/UX Overhaul**: Redesigned dashboard with sticky glassmorphism navigation, unified card hierarchies, vibrant state indicators, and pixel-perfect touch targets.
 - 📐 **Uniform Button Grid System**: Standardized all action buttons (`Copy ID`, `Copy Link`, `Download QR`, `Connect`, `Send File`) to equal heights (`h-10` / `h-11`), uniform typography, and responsive grid layouts.
 - 🔴 **Executive Red Disconnect Control**: High-visibility crimson action button (`LogOut` icon) in the header when connected for immediate, intuitive session teardown.

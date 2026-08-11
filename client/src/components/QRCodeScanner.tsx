@@ -149,8 +149,8 @@ export function QRCodeScanner({ onScan, onClose }: QRCodeScannerProps) {
           <canvas ref={canvasRef} className="hidden" />
 
           {/* QR scanning overlay */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-64 h-64 border-2 border-green-500 rounded-lg shadow-lg">
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="w-48 h-48 sm:w-64 sm:h-64 max-w-[80%] max-h-[80%] border-2 border-green-500 rounded-lg shadow-lg relative">
               <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-green-500 rounded-tl-lg"></div>
               <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-green-500 rounded-tr-lg"></div>
               <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-green-500 rounded-bl-lg"></div>
