@@ -693,6 +693,19 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       remoteIdRef.current = targetPeerId;
       setError("");
 
+      // Clean URL search params immediately so refreshing won't re-trigger auto-connect to old peer
+      if (typeof window !== "undefined" && window.history.replaceState) {
+        try {
+          const url = new URL(window.location.href);
+          if (url.searchParams.has("peer") || url.searchParams.has("peerId") || url.searchParams.has("name")) {
+            url.searchParams.delete("peer");
+            url.searchParams.delete("peerId");
+            url.searchParams.delete("name");
+            window.history.replaceState({}, document.title, url.pathname + url.hash);
+          }
+        } catch (e) {}
+      }
+
       // 1. Attempt WebRTC P2P first
       createPeerConnection(true, targetPeerId);
 

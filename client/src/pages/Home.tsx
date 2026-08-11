@@ -56,12 +56,18 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search);
     const targetPeer = params.get("peer") || params.get("peerId");
     if (targetPeer && isRegistered && !connected) {
+      if (typeof window !== "undefined" && window.history.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
       connectToPeer(targetPeer);
     }
   }, [isRegistered, connected, connectToPeer]);
 
   const handleScanQR = (data: { peerId: string; displayName: string }) => {
     setShowScanner(false);
+    if (typeof window !== "undefined" && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
     connectToPeer(data.peerId);
   };
 
