@@ -149,11 +149,11 @@ export default function Home() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column: QR Code Generator & Connect Card */}
+          {/* Left Column: QR Code Generator, Connect Card & Active P2P Session */}
           <div className="space-y-6">
             <QRCodeGenerator peerId={peerId} displayName={displayName} serverLanIp={serverLanIp} />
 
-            {/* Connect Card */}
+            {/* Connect Card (Shown when Disconnected) */}
             {!connected && (
               <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs hover:shadow-md transition-all duration-200">
                 <CardHeader className="pb-3">
@@ -192,9 +192,33 @@ export default function Home() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Connected Peer Info (Shown on Left Side when Connected) */}
+            {connected && remotePeerInfo && (
+              <Card className="rounded-2xl border border-emerald-200 bg-emerald-50/70 shadow-xs">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                    <CardTitle className="text-base font-bold text-emerald-950">Active P2P Session</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 text-sm bg-white/80 p-3.5 rounded-xl border border-emerald-200/60">
+                    <div>
+                      <p className="text-xs text-emerald-700 font-medium">Remote Device</p>
+                      <p className="font-semibold text-emerald-950 mt-0.5">{remotePeerInfo.displayName}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-emerald-700 font-medium">Peer ID</p>
+                      <p className="font-mono font-bold text-emerald-800 mt-0.5">{remotePeerInfo.peerId}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
-          {/* Right Column: Setup, Transfer & Active Peer Cards */}
+          {/* Right Column: Setup & Transfer Interface */}
           <div className="space-y-6">
             {/* Device Name Setup */}
             <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs hover:shadow-md transition-all duration-200">
@@ -240,30 +264,6 @@ export default function Home() {
               onCancelTransfer={cancelTransfer}
               error={error}
             />
-
-            {/* Connected Peer Info */}
-            {connected && remotePeerInfo && (
-              <Card className="rounded-2xl border border-emerald-200 bg-emerald-50/70 shadow-xs">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                    <CardTitle className="text-base font-bold text-emerald-950">Active P2P Session</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4 text-sm bg-white/80 p-3.5 rounded-xl border border-emerald-200/60">
-                    <div>
-                      <p className="text-xs text-emerald-700 font-medium">Remote Device</p>
-                      <p className="font-semibold text-emerald-950 mt-0.5">{remotePeerInfo.displayName}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-emerald-700 font-medium">Peer ID</p>
-                      <p className="font-mono font-bold text-emerald-800 mt-0.5">{remotePeerInfo.peerId}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </div>
 
