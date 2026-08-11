@@ -24,6 +24,7 @@ export interface UseWebRTCOptions {
 
 const getIceServers = (): RTCIceServer[] => {
   const servers: RTCIceServer[] = [
+    // STUN servers (discover public IP, work for simple NATs)
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
@@ -32,8 +33,33 @@ const getIceServers = (): RTCIceServer[] => {
     { urls: "stun:stun.services.mozilla.com" },
     { urls: "stun:global.stun.twilio.com:3478" },
     { urls: "stun:stun.xten.com" },
+    // Free public TURN relay servers (OpenRelay by Metered.ca)
+    // Required for cross-network connections (5G ↔ WiFi, different ISPs)
+    // where Carrier-Grade NAT (CG-NAT) blocks direct peer connections.
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:80?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
   ];
 
+  // Optional: override with your own TURN server via environment variables
+  // Set VITE_TURN_SERVER_URL, VITE_TURN_USERNAME, VITE_TURN_PASSWORD in .env
   const turnUrl = (import.meta as any).env?.VITE_TURN_SERVER_URL;
   const turnUsername = (import.meta as any).env?.VITE_TURN_USERNAME;
   const turnCredential = (import.meta as any).env?.VITE_TURN_PASSWORD;
