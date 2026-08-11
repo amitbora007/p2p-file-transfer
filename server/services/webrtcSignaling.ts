@@ -245,6 +245,24 @@ class WebRTCSignalingService {
         }
       });
 
+      socket.on("explicit-disconnect", (data: { to: string }) => {
+        const fromSession = this.sessions.get(socket.id);
+        if (!fromSession) return;
+        const targetSocketId = this.peerIdToSocketId.get(data.to) || null;
+        if (targetSocketId) {
+          console.log(`[WebRTC] Explicit disconnect from ${fromSession.peerId} to ${data.to}`);
+          const conn1 = this.peerConnections.get(socket.id);
+          if (conn1) conn1.delete(targetSocketId);
+          const conn2 = this.peerConnections.get(targetSocketId);
+          if (conn2) conn2.delete(socket.id);
+
+          this.io.to(targetSocketId).emit("peer-disconnected", {
+            peerId: fromSession.peerId,
+            explicit: true,
+          });
+        }
+      });
+
       socket.on("get-peer-info", (callback) => {
         const session = this.sessions.get(socket.id);
         if (session && typeof callback === "function") {

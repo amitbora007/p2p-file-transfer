@@ -18,6 +18,8 @@ export interface TransferProgress {
   direction?: "send" | "receive";
 }
 
+const PEER_ID_KEY = "p2p_stable_peer_id";
+
 export interface UseWebRTCOptions {
   displayName: string;
   isInitiator: boolean;
@@ -465,7 +467,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     // --- Stable Peer ID across reconnects & server restarts ---
     // Generate once per browser and store in localStorage so the same Peer ID
     // is reused even if Render/server restarts or the socket reconnects.
-    const PEER_ID_KEY = "p2p_stable_peer_id";
     const getOrCreateStablePeerId = (): string => {
       let id = localStorage.getItem(PEER_ID_KEY);
       if (!id) {
@@ -623,8 +624,22 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         pcRef.current = null;
       }
       dataChannelRef.current = null;
+      remoteIdRef.current = "";
       setConnected(false);
       setRemotePeerInfo(null);
+      setTransferProgress(null);
+
+      // If the disconnection was explicit, generate a brand new Peer ID for this device too!
+      if (data?.explicit) {
+        const newPeerId = Array.from(crypto.getRandomValues(new Uint8Array(6)))
+          .map((b) => b.toString(16).padStart(2, "0").toUpperCase())
+          .join("");
+        localStorage.setItem(PEER_ID_KEY, newPeerId);
+        setPeerId(newPeerId);
+        peerIdRef.current = newPeerId;
+        const { displayName: curName, isInitiator: curInit } = optionsRef.current;
+        socket.emit("register-peer", { displayName: curName, isInitiator: curInit, preferredPeerId: newPeerId });
+      }
     });
 
     socket.on("error", (error: any) => {
@@ -860,6 +875,9 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     console.log("[WebRTC] Manually disconnecting peer session & generating new Peer ID...");
 
     if (remoteIdRef.current) {
+      if (socketRef.current?.connected) {
+        socketRef.current.emit("explicit-disconnect", { to: remoteIdRef.current });
+      }
       sendDataToPeer({ type: "file-cancel" });
     }
 
@@ -890,14 +908,13 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     setTransferProgress(null);
     setError("");
 
-    // Generate brand new Peer ID & discard old one
-    const newPeerId = Array.from(crypto.getRandomValues(new Uint8Array(3)))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("")
-      .toUpperCase();
+    // Generate brand new 12-char uppercase hex Peer ID & discard old one
+    const newPeerId = Array.from(crypto.getRandomValues(new Uint8Array(6)))
+      .map((b) => b.toString(16).padStart(2, "0").toUpperCase())
+      .join("");
 
     try {
-      localStorage.setItem("p2p_preferred_peer_id", newPeerId);
+      localStorage.setItem(PEER_ID_KEY, newPeerId);
     } catch (e) {}
 
     setPeerId(newPeerId);
@@ -913,7 +930,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
             setPeerId(response.peerId);
             peerIdRef.current = response.peerId;
             try {
-              localStorage.setItem("p2p_preferred_peer_id", response.peerId);
+              localStorage.setItem(PEER_ID_KEY, response.peerId);
             } catch (e) {}
             console.log(`[WebRTC] Successfully re-registered with new Peer ID: ${response.peerId}`);
           }

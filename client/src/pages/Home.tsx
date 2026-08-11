@@ -285,17 +285,7 @@ export default function Home() {
             {connected && remotePeerInfo && (
               <Card className="bg-green-50 border-green-200">
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-green-900">Connected Device</CardTitle>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={disconnectPeer}
-                      className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-                    >
-                      Disconnect Session
-                    </Button>
-                  </div>
+                  <CardTitle className="text-green-900">Connected Device</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -376,17 +366,7 @@ export default function Home() {
             {connected && remotePeerInfo && (
               <Card className="bg-green-50 border-green-200">
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-green-900">Connected Device</CardTitle>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={disconnectPeer}
-                      className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-                    >
-                      Disconnect Session
-                    </Button>
-                  </div>
+                  <CardTitle className="text-green-900">Connected Device</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
