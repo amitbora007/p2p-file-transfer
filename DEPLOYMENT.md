@@ -16,7 +16,6 @@ The P2P File Transfer App is a Node.js + React application that enables direct p
 | **Run Unit Tests** | `pnpm test` | `npm test` | `yarn test` | `rtk pnpm test` |
 | **Build Production** | `pnpm build` | `npm run build` | `yarn build` | `rtk pnpm build` |
 | **Start Production** | `pnpm start` | `npm start` | `yarn start` | `rtk pnpm start` |
-| **Push DB Migrations**| `pnpm db:push` | `npm run db:push` | `yarn db:push` | `rtk pnpm db:push` |
 
 ---
 

@@ -42,7 +42,6 @@ A fast, secure, and resilient peer-to-peer file transfer application designed fo
 - **Backend**: Node.js 22, Express 4, Socket.IO 4
 - **P2P Engine**: Native WebRTC (`RTCPeerConnection` + `RTCDataChannel`), Multi-STUN & TURN support
 - **QR Code**: `qrcode` library for generation, `jsQR` for scanning
-- **Database**: MySQL with Drizzle ORM
 - **Testing**: Vitest for unit and integration tests
 
 ## Environment Variables (Optional)
@@ -107,7 +106,6 @@ Open the **Network / Internet access URL** (or your public domain) on your phone
 | **Run Unit Tests** | `pnpm test` | `npm test` | `rtk pnpm test` |
 | **Production Build** | `pnpm build` | `npm run build` | `rtk pnpm build` |
 | **Start Production** | `pnpm start` | `npm start` | `rtk pnpm start` |
-| **Database Migration**| `pnpm db:push` | `npm run db:push` | `rtk pnpm db:push` |
 
 ## How to Connect Devices
 
