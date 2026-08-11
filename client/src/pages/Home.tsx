@@ -38,6 +38,7 @@ export default function Home() {
     transferProgress,
     isPaused,
     connectToPeer,
+    disconnectPeer,
     sendFile,
     receiveFile,
     pauseTransfer,
@@ -47,6 +48,11 @@ export default function Home() {
     displayName,
     isInitiator: mode === "sender",
   });
+
+  const handleChangeMode = () => {
+    disconnectPeer();
+    setMode(null);
+  };
 
   // Auto-connect if URL contains ?peer=XYZ
   // IMPORTANT: wait until isRegistered=true so the socket is registered on
@@ -223,8 +229,8 @@ export default function Home() {
                 <h2 className="text-2xl font-bold text-gray-900">Send Files</h2>
                 <p className="text-gray-600">Share your QR code or connect to another device</p>
               </div>
-              <Button variant="outline" onClick={() => setMode(null)}>
-                Change Mode
+              <Button variant="outline" onClick={handleChangeMode}>
+                Disconnect & Change Mode
               </Button>
             </div>
 
@@ -279,7 +285,17 @@ export default function Home() {
             {connected && remotePeerInfo && (
               <Card className="bg-green-50 border-green-200">
                 <CardHeader>
-                  <CardTitle className="text-green-900">Connected</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-green-900">Connected Device</CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={disconnectPeer}
+                      className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                    >
+                      Disconnect Session
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -304,8 +320,8 @@ export default function Home() {
                 <h2 className="text-2xl font-bold text-gray-900">Receive Files</h2>
                 <p className="text-gray-600">Share your QR code or connect to sender</p>
               </div>
-              <Button variant="outline" onClick={() => setMode(null)}>
-                Change Mode
+              <Button variant="outline" onClick={handleChangeMode}>
+                Disconnect & Change Mode
               </Button>
             </div>
 
@@ -360,7 +376,17 @@ export default function Home() {
             {connected && remotePeerInfo && (
               <Card className="bg-green-50 border-green-200">
                 <CardHeader>
-                  <CardTitle className="text-green-900">Connected</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-green-900">Connected Device</CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={disconnectPeer}
+                      className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                    >
+                      Disconnect Session
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">

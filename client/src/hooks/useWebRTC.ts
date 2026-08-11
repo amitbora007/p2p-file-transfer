@@ -856,6 +856,48 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     onCompleteRef.current = onComplete;
   }, []);
 
+  const disconnectPeer = useCallback(() => {
+    console.log("[WebRTC] Manually disconnecting peer session...");
+
+    if (remoteIdRef.current) {
+      sendDataToPeer({ type: "file-cancel" });
+    }
+
+    if (dataChannelRef.current) {
+      try {
+        dataChannelRef.current.close();
+      } catch (e) {}
+      dataChannelRef.current = null;
+    }
+
+    if (pcRef.current) {
+      try {
+        pcRef.current.close();
+      } catch (e) {}
+      pcRef.current = null;
+    }
+
+    remoteIdRef.current = "";
+    pendingCandidatesRef.current = [];
+    lastAckedChunkIndexRef.current = -1;
+    resumeFromChunkRef.current = null;
+    lastReceivedChunkIndexRef.current = -1;
+    isCancelledRef.current = true;
+    isPausedRef.current = false;
+    setIsPaused(false);
+    setConnected(false);
+    setRemotePeerInfo(null);
+    setTransferProgress(null);
+    setError("");
+
+    if (typeof window !== "undefined" && window.history.replaceState) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("peer");
+      url.searchParams.delete("peerId");
+      window.history.replaceState({}, document.title, url.toString());
+    }
+  }, [sendDataToPeer]);
+
   return {
     peerId,
     isRegistered,
@@ -866,6 +908,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     transferProgress,
     isPaused,
     connectToPeer,
+    disconnectPeer,
     sendFile,
     receiveFile,
     pauseTransfer,
