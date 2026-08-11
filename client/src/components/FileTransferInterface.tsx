@@ -220,16 +220,16 @@ export function FileTransferInterface({
       )}
 
       <Tabs defaultValue="transfer" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="transfer" className="flex items-center gap-2">
-            <Upload className="w-4 h-4" />
+        <TabsList className="grid w-full grid-cols-2 mb-4 h-11 p-1 bg-slate-100/80 rounded-xl border border-slate-200/60">
+          <TabsTrigger value="transfer" className="flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-2xs">
+            <Upload className="w-4 h-4 text-blue-600" />
             File Transfer
           </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center gap-2">
-            <History className="w-4 h-4" />
+          <TabsTrigger value="history" className="flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-2xs">
+            <History className="w-4 h-4 text-indigo-600" />
             Session History
             {history.length > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
+              <Badge variant="secondary" className="ml-1 text-xs px-2 py-0.5 rounded-full bg-slate-200/70 font-semibold">
                 {history.length}
               </Badge>
             )}
@@ -238,15 +238,15 @@ export function FileTransferInterface({
 
         <TabsContent value="transfer" className="space-y-4">
           {/* Send File Section */}
-          <Card>
-            <CardHeader>
+          <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs hover:shadow-md transition-all duration-200">
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Upload className="w-5 h-5" />
+                  <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <Upload className="w-5 h-5 text-blue-600" />
                     Send File
                   </CardTitle>
-                  <CardDescription>Select a file to share with the connected peer</CardDescription>
+                  <CardDescription className="text-xs text-slate-500">Select a file to share with the connected peer</CardDescription>
                 </div>
                 <HelpTooltip content="Choose a file from your device and send it directly to the connected peer. The transfer happens peer-to-peer without using a server." />
               </div>
@@ -256,12 +256,12 @@ export function FileTransferInterface({
                 onDragOver={(e) => { if (connected) handleDragOver(e); }}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => { if (connected) handleDrop(e); }}
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition ${
+                className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${
                   !connected
-                    ? "opacity-60 cursor-not-allowed border-gray-200 bg-gray-50"
+                    ? "opacity-60 cursor-not-allowed border-slate-200 bg-slate-50/60"
                     : isDragging
-                    ? "border-blue-500 bg-blue-50 cursor-pointer"
-                    : "border-gray-300 hover:border-gray-400 bg-gray-50/50 cursor-pointer"
+                    ? "border-blue-500 bg-blue-50/80 shadow-xs"
+                    : "border-slate-300 hover:border-slate-400 bg-slate-50/40 hover:bg-slate-50 cursor-pointer"
                 }`}
                 onClick={() => {
                   if (connected) fileInputRef.current?.click();
@@ -274,31 +274,33 @@ export function FileTransferInterface({
                   className="hidden"
                   disabled={!connected}
                 />
-                <div className="flex flex-col items-center gap-2">
-                  <Upload className="w-8 h-8 text-gray-400" />
-                  <p className="text-sm font-medium text-gray-700">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="p-3 bg-blue-50 rounded-2xl text-blue-600 border border-blue-100">
+                    <Upload className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-700">
                     {connected
                       ? "Click or drag & drop a file here to select"
                       : "Connect to a peer to select and send files"}
                   </p>
                   <Button
                     variant="outline"
-                    size="sm"
                     type="button"
                     disabled={!connected}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (connected) fileInputRef.current?.click();
                     }}
+                    className="h-10 px-5 rounded-xl border border-slate-200 text-sm font-medium hover:bg-slate-100 transition-all shadow-2xs"
                   >
                     Choose File
                   </Button>
                 </div>
 
                 {selectedFile && (
-                  <div className="mt-4 p-3 bg-white rounded border border-gray-200 text-left">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{selectedFile.name}</p>
-                    <p className="text-xs text-gray-500">{formatBytes(selectedFile.size)}</p>
+                  <div className="mt-4 p-3.5 bg-white rounded-xl border border-slate-200 text-left shadow-2xs">
+                    <p className="text-sm font-semibold text-slate-900 truncate">{selectedFile.name}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{formatBytes(selectedFile.size)}</p>
                   </div>
                 )}
               </div>
@@ -307,7 +309,7 @@ export function FileTransferInterface({
                 <Button
                   onClick={handleSendFile}
                   disabled={!connected || transferProgress !== null}
-                  className="w-full"
+                  className="h-11 w-full rounded-xl font-medium text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {transferProgress ? (
                     <>

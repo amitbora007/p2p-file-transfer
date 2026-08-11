@@ -35,8 +35,9 @@ A fast, resilient, and secure peer-to-peer file transfer application designed fo
 ## ✨ Features
 
 - 🌐 **100% Cross-Network Connectivity**: Connect devices seamlessly across 5G/4G mobile networks, home Wi-Fi, corporate networks, or public domains.
-- 🎨 **Unified P2P Interface**: Removed separate role selection ("Choose Your Role") for an instant, friction-free landing experience with integrated Send, Receive, and Session History.
-- 🔴 **Highlighted Red Disconnect Control**: Prominent red action button (`LogOut` icon) in the header when connected, allowing instant, clean session termination.
+- ✨ **Executive UI/UX Overhaul**: Redesigned dashboard with sticky glassmorphism navigation, unified card hierarchies, vibrant state indicators, and pixel-perfect touch targets.
+- 📐 **Uniform Button Grid System**: Standardized all action buttons (`Copy ID`, `Copy Link`, `Download QR`, `Connect`, `Send File`) to equal heights (`h-10` / `h-11`), uniform typography, and responsive grid layouts.
+- 🔴 **Executive Red Disconnect Control**: High-visibility crimson action button (`LogOut` icon) in the header when connected for immediate, intuitive session teardown.
 - 🔌 **Explicit Session Disconnect & Peer ID Regeneration**: Clicking the single "Disconnect" button (`handleDisconnect`) cleanly closes active WebRTC data channels, sends an `explicit-disconnect` signal to the paired device, generates brand new Peer IDs and QR codes on both devices, clears URL parameters (`?peer=...`), and resets session states to prevent unwanted automatic reconnections.
 - 📋 **Session Transmission History**: Dedicated History tab tracking all file transfers performed during a session between paired devices, complete with file sizes, direction badges (`Sent` / `Received`), status badges (`Completed`, `Failed`, `Cancelled`), timestamps, and single-click history log cleanup.
 - 🔄 **Automatic Mid-Transfer Resume**: Never lose transfer progress. If mobile 4G drops and reconnects mid-download, the transfer automatically resumes from the exact last received chunk.

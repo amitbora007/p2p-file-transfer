@@ -74,43 +74,40 @@ export function QRCodeGenerator({ peerId, displayName, serverLanIp }: QRCodeGene
         </div>
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-6">
-        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 flex justify-center max-w-full">
-          <canvas ref={canvasRef} className="max-w-full h-auto" />
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm flex justify-center max-w-full">
+          <canvas ref={canvasRef} className="max-w-full h-auto rounded-lg" />
         </div>
 
-        <div className="w-full space-y-2 text-center">
-          <div>
-            <p className="text-sm text-gray-600">Your Peer ID</p>
-            <p className="text-xl font-mono font-bold text-blue-600 break-all">{peerId}</p>
+        <div className="w-full space-y-1.5 text-center">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Your Peer ID</p>
+          <div className="inline-flex items-center justify-center bg-blue-50/80 border border-blue-200/60 rounded-xl px-4 py-1.5">
+            <span className="text-lg font-mono font-bold text-blue-700 break-all">{peerId || "Generating..."}</span>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 w-full justify-center">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full">
           <Button
             variant="outline"
-            size="sm"
             onClick={handleCopyPeerId}
-            className="flex-1 min-w-[110px] text-xs sm:text-sm"
+            className="h-10 w-full text-sm font-medium rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all flex items-center justify-center gap-2 shadow-2xs active:scale-[0.98]"
           >
-            <Copy className="w-4 h-4 mr-1.5" />
-            Copy Peer ID
+            <Copy className="w-4 h-4 text-slate-500" />
+            Copy ID
           </Button>
           <Button
             variant="outline"
-            size="sm"
             onClick={handleCopyUrl}
-            className="flex-1 min-w-[110px] text-xs sm:text-sm"
+            className="h-10 w-full text-sm font-medium rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all flex items-center justify-center gap-2 shadow-2xs active:scale-[0.98]"
           >
-            <Copy className="w-4 h-4 mr-1.5" />
+            <Copy className="w-4 h-4 text-slate-500" />
             Copy Link
           </Button>
           <Button
             variant="outline"
-            size="sm"
             onClick={handleDownload}
-            className="flex-1 min-w-[110px] text-xs sm:text-sm"
+            className="h-10 w-full text-sm font-medium rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all flex items-center justify-center gap-2 shadow-2xs active:scale-[0.98]"
           >
-            <Download className="w-4 h-4 mr-1.5" />
+            <Download className="w-4 h-4 text-slate-500" />
             Download QR
           </Button>
         </div>
