@@ -77,22 +77,22 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 py-4 sm:py-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">P2P File Transfer</h1>
-              <p className="text-gray-600 mt-1">Fast, secure file sharing on local networks</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">P2P File Transfer</h1>
+              <p className="text-xs sm:text-sm text-gray-600 mt-0.5 sm:mt-1">Fast, secure file sharing on local networks</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
               <div className="flex items-center gap-2">
                 {connected ? (
-                  <Badge variant="default" className="bg-green-600 px-3 py-1 text-sm font-medium">
-                    <Wifi className="w-4 h-4 mr-1.5" />
+                  <Badge variant="default" className="bg-green-600 px-3 py-1 text-xs sm:text-sm font-medium">
+                    <Wifi className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5" />
                     Connected
                   </Badge>
                 ) : (
-                  <Badge variant="secondary" className="px-3 py-1 text-sm font-medium">
-                    <WifiOff className="w-4 h-4 mr-1.5" />
+                  <Badge variant="secondary" className="px-3 py-1 text-xs sm:text-sm font-medium">
+                    <WifiOff className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5" />
                     Disconnected
                   </Badge>
                 )}
@@ -102,9 +102,9 @@ export default function Home() {
               {connected && (
                 <Button
                   onClick={handleDisconnect}
-                  className="bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 border border-red-700"
+                  className="bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-1.5 border border-red-700"
                 >
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   Disconnect
                 </Button>
               )}

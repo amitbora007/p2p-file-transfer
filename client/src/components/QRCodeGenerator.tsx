@@ -74,43 +74,43 @@ export function QRCodeGenerator({ peerId, displayName, serverLanIp }: QRCodeGene
         </div>
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-6">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <canvas ref={canvasRef} />
+        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 flex justify-center max-w-full">
+          <canvas ref={canvasRef} className="max-w-full h-auto" />
         </div>
 
         <div className="w-full space-y-2 text-center">
           <div>
             <p className="text-sm text-gray-600">Your Peer ID</p>
-            <p className="text-xl font-mono font-bold text-blue-600">{peerId}</p>
+            <p className="text-xl font-mono font-bold text-blue-600 break-all">{peerId}</p>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 w-full">
+        <div className="flex flex-wrap gap-2 w-full justify-center">
           <Button
             variant="outline"
             size="sm"
             onClick={handleCopyPeerId}
-            className="flex-1 min-w-[120px]"
+            className="flex-1 min-w-[110px] text-xs sm:text-sm"
           >
-            <Copy className="w-4 h-4 mr-2" />
+            <Copy className="w-4 h-4 mr-1.5" />
             Copy Peer ID
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handleCopyUrl}
-            className="flex-1 min-w-[120px]"
+            className="flex-1 min-w-[110px] text-xs sm:text-sm"
           >
-            <Copy className="w-4 h-4 mr-2" />
+            <Copy className="w-4 h-4 mr-1.5" />
             Copy Link
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handleDownload}
-            className="flex-1 min-w-[120px]"
+            className="flex-1 min-w-[110px] text-xs sm:text-sm"
           >
-            <Download className="w-4 h-4 mr-2" />
+            <Download className="w-4 h-4 mr-1.5" />
             Download QR
           </Button>
         </div>
