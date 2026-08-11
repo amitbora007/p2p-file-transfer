@@ -95,7 +95,27 @@ class WebRTCSignalingService {
 
           this.sessions.set(socket.id, session);
           this.peerConnections.set(socket.id, new Set());
-          console.log(`[WebRTC] Peer registered: ${peerId} (${data.displayName})`);
+          // Notify any other active session that was previously paired with this peerId
+          for (const [otherSocketId, otherSession] of Array.from(this.sessions.entries())) {
+            if (otherSocketId !== socket.id) {
+              const otherConns = this.peerConnections.get(otherSocketId);
+              if (otherConns) {
+                // Re-link new socket ID in connection set
+                otherConns.add(socket.id);
+                this.peerConnections.get(socket.id)?.add(otherSocketId);
+
+                console.log(`[WebRTC] Auto-reconnecting peers: ${peerId} <-> ${otherSession.peerId}`);
+                this.io.to(otherSocketId).emit("peer-connected", {
+                  peerId,
+                  displayName: data.displayName,
+                });
+                this.io.to(socket.id).emit("peer-connected", {
+                  peerId: otherSession.peerId,
+                  displayName: otherSession.displayName,
+                });
+              }
+            }
+          }
         }
 
         if (typeof callback === "function") {
