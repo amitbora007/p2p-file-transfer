@@ -70,13 +70,20 @@ class WebRTCSignalingService {
             console.log(`[WebRTC] Peer name updated: ${peerId} (${data.displayName})`);
           }
         } else {
-          // New connection — try to reuse the client's stable preferred Peer ID
+          // New connection — reuse the client's preferred Peer ID and evict any stale dead session
           const preferred = data.preferredPeerId;
-          const isPreferredTaken = preferred
-            ? Array.from(this.sessions.values()).some(s => s.peerId === preferred)
-            : false;
-
-          peerId = (preferred && !isPreferredTaken) ? preferred : this.generatePeerId();
+          if (preferred) {
+            for (const [sId, s] of Array.from(this.sessions.entries())) {
+              if (s.peerId === preferred && sId !== socket.id) {
+                console.log(`[WebRTC] Evicting stale session ${sId} for peer ${preferred}`);
+                this.sessions.delete(sId);
+                this.peerConnections.delete(sId);
+              }
+            }
+            peerId = preferred;
+          } else {
+            peerId = this.generatePeerId();
+          }
 
           session = {
             id: socket.id,
