@@ -189,20 +189,35 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     };
   }, [connected, transferProgress, requestWakeLock]);
 
+  const sendDataToPeer = useCallback((payload: any) => {
+    if (dataChannelRef.current?.readyState === "open") {
+      try {
+        dataChannelRef.current.send(JSON.stringify(payload));
+        return true;
+      } catch (e) {
+        console.warn("[WebRTC] DataChannel send error, falling back to relay:", e);
+      }
+    }
+
+    if (socketRef.current?.connected && remoteIdRef.current) {
+      socketRef.current.emit("relay-file-data", {
+        to: remoteIdRef.current,
+        payload,
+      });
+      return true;
+    }
+
+    return false;
+  }, []);
+
   const pauseTransfer = useCallback(() => {
     if (!isPausedRef.current) {
       pausedStartTimeRef.current = Date.now();
     }
     isPausedRef.current = true;
     setIsPaused(true);
-    if (dataChannelRef.current?.readyState === "open") {
-      try {
-        dataChannelRef.current.send(JSON.stringify({ type: "file-pause" }));
-      } catch (e) {
-        console.error("[WebRTC] Error sending pause control:", e);
-      }
-    }
-  }, []);
+    sendDataToPeer({ type: "file-pause" });
+  }, [sendDataToPeer]);
 
   const resumeTransfer = useCallback(() => {
     if (isPausedRef.current && pausedStartTimeRef.current !== null) {
@@ -211,14 +226,8 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     }
     isPausedRef.current = false;
     setIsPaused(false);
-    if (dataChannelRef.current?.readyState === "open") {
-      try {
-        dataChannelRef.current.send(JSON.stringify({ type: "file-resume" }));
-      } catch (e) {
-        console.error("[WebRTC] Error sending resume control:", e);
-      }
-    }
-  }, []);
+    sendDataToPeer({ type: "file-resume" });
+  }, [sendDataToPeer]);
 
   const cancelTransfer = useCallback(() => {
     isCancelledRef.current = true;
@@ -228,102 +237,104 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     totalPausedDurationRef.current = 0;
     receiveStartTimeRef.current = null;
     setTransferProgress(null);
-    if (dataChannelRef.current?.readyState === "open") {
-      try {
-        dataChannelRef.current.send(JSON.stringify({ type: "file-cancel" }));
-      } catch (e) {
-        console.error("[WebRTC] Error sending cancel control:", e);
+    sendDataToPeer({ type: "file-cancel" });
+  }, [sendDataToPeer]);
+
+  const handleIncomingMessage = useCallback((message: any) => {
+    if (!message) return;
+    if (message.type === "file-chunk") {
+      if (onChunkRef.current) {
+        onChunkRef.current(message);
       }
+      if (receiveStartTimeRef.current === null || message.chunkIndex === 0) {
+        receiveStartTimeRef.current = Date.now();
+      }
+
+      const chunkSize = 64 * 1024;
+      const fileSizeBytes = message.totalChunks * chunkSize;
+      const transferredBytes = Math.min((message.chunkIndex + 1) * chunkSize, fileSizeBytes);
+      const elapsed = Math.max((Date.now() - receiveStartTimeRef.current) / 1000, 0.1);
+      const speed = transferredBytes / elapsed / (1024 * 1024); // MB/s
+      const remainingBytes = Math.max(fileSizeBytes - transferredBytes, 0);
+      const timeRemaining = speed > 0 ? (remainingBytes / (1024 * 1024)) / speed : 0;
+
+      setTransferProgress({
+        fileName: message.fileName,
+        progress: message.chunkIndex + 1,
+        total: message.totalChunks,
+        fileSizeBytes,
+        transferredBytes,
+        speed,
+        timeRemaining,
+      });
+    } else if (message.type === "file-complete") {
+      receiveStartTimeRef.current = null;
+      if (onCompleteRef.current) {
+        onCompleteRef.current(message);
+      }
+      setTransferProgress(null);
+      console.log(`[WebRTC] File received: ${message.fileName}`);
+    } else if (message.type === "file-pause") {
+      console.log("[WebRTC] Received pause message from peer");
+      if (!isPausedRef.current) {
+        pausedStartTimeRef.current = Date.now();
+      }
+      isPausedRef.current = true;
+      setIsPaused(true);
+    } else if (message.type === "file-resume") {
+      console.log("[WebRTC] Received resume message from peer");
+      if (isPausedRef.current && pausedStartTimeRef.current !== null) {
+        totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
+        pausedStartTimeRef.current = null;
+      }
+      isPausedRef.current = false;
+      setIsPaused(false);
+    } else if (message.type === "file-cancel") {
+      console.log("[WebRTC] Received cancel message from peer");
+      receiveStartTimeRef.current = null;
+      pausedStartTimeRef.current = null;
+      totalPausedDurationRef.current = 0;
+      isCancelledRef.current = true;
+      isPausedRef.current = false;
+      setIsPaused(false);
+      setTransferProgress(null);
+      setError("File transfer was cancelled by peer.");
     }
   }, []);
 
-  const setupDataChannelEvents = useCallback((channel: RTCDataChannel) => {
-    dataChannelRef.current = channel;
-    channel.bufferedAmountLowThreshold = 1024 * 1024; // 1MB threshold
+  const setupDataChannelEvents = useCallback(
+    (channel: RTCDataChannel) => {
+      dataChannelRef.current = channel;
+      channel.bufferedAmountLowThreshold = 1024 * 1024; // 1MB threshold
 
-    channel.onopen = () => {
-      console.log("[WebRTC] Data channel opened");
-      setConnected(true);
-      setError("");
-    };
+      channel.onopen = () => {
+        console.log("[WebRTC] Data channel opened");
+        setConnected(true);
+        setError("");
+      };
 
-    channel.onclose = () => {
-      console.log("[WebRTC] Data channel closed");
-      setConnected(false);
-    };
-
-    channel.onerror = (err) => {
-      console.error("[WebRTC] Data channel error:", err);
-      setError("Data channel error");
-    };
-
-    channel.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-
-        if (message.type === "file-chunk") {
-          if (onChunkRef.current) {
-            onChunkRef.current(message);
-          }
-          if (receiveStartTimeRef.current === null || message.chunkIndex === 0) {
-            receiveStartTimeRef.current = Date.now();
-          }
-
-          const chunkSize = 64 * 1024;
-          const fileSizeBytes = message.totalChunks * chunkSize;
-          const transferredBytes = Math.min((message.chunkIndex + 1) * chunkSize, fileSizeBytes);
-          const elapsed = Math.max((Date.now() - receiveStartTimeRef.current) / 1000, 0.1);
-          const speed = transferredBytes / elapsed / (1024 * 1024); // MB/s
-          const remainingBytes = Math.max(fileSizeBytes - transferredBytes, 0);
-          const timeRemaining = speed > 0 ? (remainingBytes / (1024 * 1024)) / speed : 0;
-
-          setTransferProgress({
-            fileName: message.fileName,
-            progress: message.chunkIndex + 1,
-            total: message.totalChunks,
-            fileSizeBytes,
-            transferredBytes,
-            speed,
-            timeRemaining,
-          });
-        } else if (message.type === "file-complete") {
-          receiveStartTimeRef.current = null;
-          if (onCompleteRef.current) {
-            onCompleteRef.current(message);
-          }
-          setTransferProgress(null);
-          console.log(`[WebRTC] File received: ${message.fileName}`);
-        } else if (message.type === "file-pause") {
-          console.log("[WebRTC] Received pause message from peer");
-          if (!isPausedRef.current) {
-            pausedStartTimeRef.current = Date.now();
-          }
-          isPausedRef.current = true;
-          setIsPaused(true);
-        } else if (message.type === "file-resume") {
-          console.log("[WebRTC] Received resume message from peer");
-          if (isPausedRef.current && pausedStartTimeRef.current !== null) {
-            totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
-            pausedStartTimeRef.current = null;
-          }
-          isPausedRef.current = false;
-          setIsPaused(false);
-        } else if (message.type === "file-cancel") {
-          console.log("[WebRTC] Received cancel message from peer");
-          receiveStartTimeRef.current = null;
-          pausedStartTimeRef.current = null;
-          totalPausedDurationRef.current = 0;
-          isCancelledRef.current = true;
-          isPausedRef.current = false;
-          setIsPaused(false);
-          setTransferProgress(null);
-          setError("File transfer was cancelled by peer.");
+      channel.onclose = () => {
+        console.log("[WebRTC] Data channel closed");
+        if (!socketRef.current?.connected) {
+          setConnected(false);
         }
-      } catch (err) {
-        console.error("[WebRTC] Error parsing message:", err);
-      }
-    };
-  }, []);
+      };
+
+      channel.onerror = (err) => {
+        console.error("[WebRTC] Data channel error:", err);
+      };
+
+      channel.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          handleIncomingMessage(message);
+        } catch (err) {
+          console.error("[WebRTC] Error parsing message:", err);
+        }
+      };
+    },
+    [handleIncomingMessage]
+  );
 
   const createPeerConnection = useCallback(
     (initiator: boolean, remoteId: string) => {
@@ -541,6 +552,24 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       console.error("[WebRTC] Signal error:", data.message);
     });
 
+    socket.on("relay-file-data", (data: any) => {
+      console.log("[WebRTC Relay] Received data from peer:", data.from);
+      if (data.from) {
+        setRemotePeerInfo((prev) => prev || {
+          peerId: data.from,
+          displayName: data.fromDisplayName || "Connected Peer",
+          isInitiator: false,
+        });
+        remoteIdRef.current = data.from;
+      }
+      setConnected(true);
+      setError("");
+
+      if (data.payload) {
+        handleIncomingMessage(data.payload);
+      }
+    });
+
     socket.on("peer-disconnected", (data: any) => {
       console.log(`[WebRTC] Peer disconnected: ${data.peerId}`);
       if (pcRef.current) {
@@ -598,15 +627,27 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
       console.log(`[WebRTC] Initiating connection to ${targetPeerId}`);
       remoteIdRef.current = targetPeerId;
+      setError("");
+
+      // 1. Attempt WebRTC P2P first
       createPeerConnection(true, targetPeerId);
+
+      // 2. Relay fallback timer: if direct P2P data channel fails to open in 2.5s
+      // (due to carrier CG-NAT blocking STUN/TURN), set connected=true so WebSocket relay enables seamlessly!
+      setTimeout(() => {
+        if (!connected) {
+          console.log("[WebRTC Relay] Enabling Socket.IO relay mode for cross-network connection");
+          setConnected(true);
+          setError("");
+        }
+      }, 2500);
     },
-    [createPeerConnection]
+    [createPeerConnection, connected]
   );
 
   const sendFile = useCallback(
     async (file: File) => {
-      const channel = dataChannelRef.current;
-      if (!channel || channel.readyState !== "open") {
+      if (!connected) {
         setError("Not connected to peer");
         return;
       }
@@ -653,20 +694,19 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         }
 
         if (start >= file.size) {
-          channel.send(
-            JSON.stringify({
-              type: "file-complete",
-              fileName: file.name,
-              fileSize: file.size,
-            })
-          );
+          sendDataToPeer({
+            type: "file-complete",
+            fileName: file.name,
+            fileSize: file.size,
+          });
           setTransferProgress(null);
           console.log(`[WebRTC] File transfer complete: ${file.name}`);
           return;
         }
 
-        // WebRTC DataChannel flow control: pause if bufferedAmount > 2MB
-        if (channel.bufferedAmount > 2 * 1024 * 1024) {
+        // WebRTC DataChannel flow control if channel is open
+        const channel = dataChannelRef.current;
+        if (channel && channel.readyState === "open" && channel.bufferedAmount > 2 * 1024 * 1024) {
           channel.onbufferedamountlow = () => {
             channel.onbufferedamountlow = null;
             sendChunk(start);
@@ -686,18 +726,15 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
             }
 
             const data = e.target.result as ArrayBuffer;
-            try {
-              channel.send(
-                JSON.stringify({
-                  type: "file-chunk",
-                  fileName: file.name,
-                  chunkIndex: sentChunks,
-                  totalChunks: totalChunks,
-                  data: Array.from(new Uint8Array(data)),
-                })
-              );
-            } catch (err: any) {
-              console.error("[WebRTC] Error sending chunk:", err);
+            const sent = sendDataToPeer({
+              type: "file-chunk",
+              fileName: file.name,
+              chunkIndex: sentChunks,
+              totalChunks: totalChunks,
+              data: Array.from(new Uint8Array(data)),
+            });
+
+            if (!sent) {
               setError("Failed to send file chunk");
               return;
             }
@@ -732,7 +769,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
       sendChunk(0);
     },
-    []
+    [connected, sendDataToPeer]
   );
 
   const receiveFile = useCallback((onChunk: (data: any) => void, onComplete: (data: any) => void) => {
