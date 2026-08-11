@@ -31,7 +31,10 @@ export function TransferProgressBar({
   };
 
   const formatTime = (seconds: number) => {
-    if (seconds < 0) return "Calculating...";
+    if (isPaused) return "Paused";
+    if (progressPercent >= 100) return "Complete";
+    if (!seconds || seconds <= 0 || !isFinite(seconds) || isNaN(seconds)) return "Calculating...";
+    if (seconds < 1) return "< 1s";
     if (seconds < 60) return Math.round(seconds) + "s";
     const minutes = Math.floor(seconds / 60);
     const secs = Math.round(seconds % 60);

@@ -33,7 +33,7 @@ export function QRCodeScanner({ onScan, onClose }: QRCodeScannerProps) {
           };
         }
       } catch (err) {
-        setError("Unable to access camera. Please check permissions.");
+        setError("Unable to access camera. Browsers require HTTPS or localhost for camera access on mobile devices. You can use the 'Connect via Peer ID' option to connect directly.");
         console.error("Camera access error:", err);
       }
     };
@@ -56,16 +56,40 @@ export function QRCodeScanner({ onScan, onClose }: QRCodeScannerProps) {
           // Use jsQR to decode the QR code
           const qrCode = jsQR(imageData.data, canvas.width, canvas.height);
 
-          if (qrCode) {
-            try {
-              const parsed = JSON.parse(qrCode.data);
-              if (parsed.peerId && parsed.displayName) {
-                setScanning(false);
-                onScan(parsed);
-                return;
-              }
-            } catch (e) {
-              // Not a valid JSON QR code, continue scanning
+          if (qrCode && qrCode.data) {
+            const rawData = qrCode.data.trim();
+            let scannedPeerId = "";
+            let scannedName = "Remote Device";
+
+            // 1. Try URL format (http://.../?peer=ABCDEF&name=...)
+            if (rawData.startsWith("http://") || rawData.startsWith("https://")) {
+              try {
+                const url = new URL(rawData);
+                scannedPeerId = url.searchParams.get("peer") || url.searchParams.get("peerId") || "";
+                scannedName = url.searchParams.get("name") || url.searchParams.get("displayName") || "Remote Device";
+              } catch (_) {}
+            }
+
+            // 2. Try JSON format
+            if (!scannedPeerId && rawData.startsWith("{")) {
+              try {
+                const parsed = JSON.parse(rawData);
+                if (parsed.peerId) {
+                  scannedPeerId = parsed.peerId;
+                  scannedName = parsed.displayName || "Remote Device";
+                }
+              } catch (_) {}
+            }
+
+            // 3. Try plain Peer ID string
+            if (!scannedPeerId && /^[A-Za-z0-9_-]{6,16}$/.test(rawData)) {
+              scannedPeerId = rawData;
+            }
+
+            if (scannedPeerId) {
+              setScanning(false);
+              onScan({ peerId: scannedPeerId, displayName: scannedName });
+              return;
             }
           }
         } catch (err) {

@@ -1,6 +1,20 @@
 import { Server as SocketIOServer } from "socket.io";
 import { Server as HTTPServer } from "http";
 import crypto from "crypto";
+import os from "os";
+
+function getLocalIpAddresses(): string[] {
+  const interfaces = os.networkInterfaces();
+  const addresses: string[] = [];
+  for (const k in interfaces) {
+    for (const k2 of interfaces[k] || []) {
+      if (k2.family === "IPv4" && !k2.internal) {
+        addresses.push(k2.address);
+      }
+    }
+  }
+  return addresses;
+}
 
 export interface PeerSession {
   id: string;
@@ -53,11 +67,14 @@ class WebRTCSignalingService {
 
         console.log(`[WebRTC] Peer registered: ${peerId} (${data.displayName})`);
 
-        callback({
-          success: true,
-          peerId,
-          sessionId: socket.id,
-        });
+        if (typeof callback === "function") {
+          callback({
+            success: true,
+            peerId,
+            sessionId: socket.id,
+            lanIps: getLocalIpAddresses(),
+          });
+        }
       });
 
       socket.on("signal", (data: SignalingMessage) => {
@@ -102,7 +119,7 @@ class WebRTCSignalingService {
 
       socket.on("get-peer-info", (callback) => {
         const session = this.sessions.get(socket.id);
-        if (session) {
+        if (session && typeof callback === "function") {
           callback({
             peerId: session.peerId,
             displayName: session.displayName,

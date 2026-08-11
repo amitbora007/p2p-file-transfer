@@ -15,16 +15,48 @@ export default function Home() {
   const [displayName, setDisplayName] = useState("My Device");
   const [mode, setMode] = useState<"sender" | "receiver" | null>(null);
   const [showScanner, setShowScanner] = useState(false);
+  const [manualPeerInput, setManualPeerInput] = useState("");
 
-  const { peerId, connected, remotePeerInfo, error, transferProgress, connectToPeer, sendFile, receiveFile } =
-    useWebRTC({
-      displayName,
-      isInitiator: mode === "sender",
-    });
+  const {
+    peerId,
+    serverLanIp,
+    connected,
+    remotePeerInfo,
+    error,
+    transferProgress,
+    isPaused,
+    connectToPeer,
+    sendFile,
+    receiveFile,
+    pauseTransfer,
+    resumeTransfer,
+    cancelTransfer,
+  } = useWebRTC({
+    displayName,
+    isInitiator: mode === "sender",
+  });
+
+  // Auto-connect if URL contains ?peer=XYZ
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const targetPeer = params.get("peer") || params.get("peerId");
+    if (targetPeer && peerId && !connected) {
+      if (!mode) setMode("receiver");
+      connectToPeer(targetPeer);
+    }
+  }, [peerId, connected, mode, connectToPeer]);
 
   const handleScanQR = (data: { peerId: string; displayName: string }) => {
     setShowScanner(false);
     connectToPeer(data.peerId);
+  };
+
+  const handleManualConnect = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanId = manualPeerInput.trim();
+    if (cleanId) {
+      connectToPeer(cleanId);
+    }
   };
 
   return (
@@ -51,7 +83,7 @@ export default function Home() {
                   </Badge>
                 )}
               </div>
-              <HelpTooltip content={connected ? "You are connected to a peer. You can now send or receive files." : "Not connected to a peer yet. Generate or scan a QR code to establish a connection."} />
+              <HelpTooltip content={connected ? "You are connected to a peer. You can now send or receive files." : "Not connected to a peer yet. Generate or scan a QR code, or enter a Peer ID to connect."} />
             </div>
           </div>
         </div>
@@ -68,63 +100,101 @@ export default function Home() {
 
         {/* Device Setup Section */}
         {!mode && (
-          <div className="space-y-6">
-            {/* Device Name Setup */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Setup Your Device</CardTitle>
-                    <CardDescription>Give your device a name for easy identification</CardDescription>
-                  </div>
-                  <HelpTooltip content="Choose a memorable name for your device. This name will be visible to other devices when they connect to you." />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Enter device name"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <p className="text-sm text-gray-600">Your Peer ID: <span className="font-mono font-bold">{peerId}</span></p>
-              </CardContent>
-            </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column: QR Code Generator */}
+            <QRCodeGenerator peerId={peerId} displayName={displayName} serverLanIp={serverLanIp} />
 
-            {/* Mode Selection */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Choose Your Role</CardTitle>
-                    <CardDescription>Select whether you want to send or receive files</CardDescription>
+            {/* Right Column: Setup, Role & Connect Cards */}
+            <div className="space-y-6">
+              {/* Device Name Setup */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Setup Your Device</CardTitle>
+                      <CardDescription>Give your device a name for easy identification</CardDescription>
+                    </div>
+                    <HelpTooltip content="Choose a memorable name for your device. This name will be visible to other devices when they connect to you." />
                   </div>
-                  <HelpTooltip content="Sender: You initiate the file transfer. Receiver: You wait for files from another device. Both devices need to be on the same WiFi network." />
-                </div>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-4">
-                <Button
-                  onClick={() => setMode("sender")}
-                  size="lg"
-                  className="h-24 flex flex-col items-center justify-center gap-2"
-                >
-                  <span className="text-2xl">📤</span>
-                  <span>Send Files</span>
-                </Button>
-                <Button
-                  onClick={() => setMode("receiver")}
-                  size="lg"
-                  variant="outline"
-                  className="h-24 flex flex-col items-center justify-center gap-2"
-                >
-                  <span className="text-2xl">📥</span>
-                  <span>Receive Files</span>
-                </Button>
-              </CardContent>
-            </Card>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Enter device name"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <p className="text-sm text-gray-600">Your Peer ID: <span className="font-mono font-bold text-blue-600">{peerId || "Generating..."}</span></p>
+                </CardContent>
+              </Card>
+
+              {/* Mode Selection */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Choose Your Role</CardTitle>
+                      <CardDescription>
+                        Select whether you want to send or receive files
+                      </CardDescription>
+                    </div>
+                    <HelpTooltip content="Sender: You initiate the file transfer. Receiver: You wait for files from another device. Works across any network (5G, 4G cellular, Wi-Fi, or Internet)." />
+                  </div>
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 gap-4">
+                  <Button
+                    onClick={() => setMode("sender")}
+                    size="lg"
+                    className="h-24 flex flex-col items-center justify-center gap-2"
+                  >
+                    <span className="text-2xl">📤</span>
+                    <span>Send Files</span>
+                  </Button>
+                  <Button
+                    onClick={() => setMode("receiver")}
+                    size="lg"
+                    variant="outline"
+                    className="h-24 flex flex-col items-center justify-center gap-2"
+                  >
+                    <span className="text-2xl">📥</span>
+                    <span>Receive Files</span>
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Connect Card on Home Screen */}
+              {!connected && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Connect to Remote Device</CardTitle>
+                    <CardDescription>Scan a QR code or enter the remote Peer ID manually</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <form onSubmit={handleManualConnect} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={manualPeerInput}
+                        onChange={(e) => setManualPeerInput(e.target.value)}
+                        placeholder="Enter Peer ID (e.g., 3F9A12)"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                      />
+                      <Button type="submit" disabled={!manualPeerInput.trim()}>
+                        Connect
+                      </Button>
+                    </form>
+                    <div className="relative flex items-center justify-center border-t pt-4">
+                      <span className="bg-white px-2 text-xs text-gray-500 absolute -top-3">OR</span>
+                    </div>
+                    <Button onClick={() => setShowScanner(true)} variant="outline" className="w-full">
+                      Scan QR Code via Camera
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
         )}
 
@@ -143,28 +213,46 @@ export default function Home() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* QR Code Generator */}
-              <QRCodeGenerator peerId={peerId} displayName={displayName} />
+              <QRCodeGenerator peerId={peerId} displayName={displayName} serverLanIp={serverLanIp} />
 
               {/* File Transfer Interface */}
               <FileTransferInterface
                 connected={connected}
                 transferProgress={transferProgress}
+                isPaused={isPaused}
                 onSendFile={sendFile}
                 onReceiveFile={receiveFile}
+                onPauseResume={isPaused ? resumeTransfer : pauseTransfer}
+                onCancelTransfer={cancelTransfer}
                 error={error}
               />
             </div>
 
-            {/* Connect to Receiver */}
+            {/* Connect Card */}
             {!connected && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Connect to Receiver</CardTitle>
-                  <CardDescription>Scan the receiver's QR code to establish connection</CardDescription>
+                  <CardTitle>Connect to Remote Device</CardTitle>
+                  <CardDescription>Scan a QR code or enter the remote Peer ID manually</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <Button onClick={() => setShowScanner(true)} className="w-full">
-                    Scan QR Code
+                <CardContent className="space-y-4">
+                  <form onSubmit={handleManualConnect} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={manualPeerInput}
+                      onChange={(e) => setManualPeerInput(e.target.value)}
+                      placeholder="Enter Peer ID (e.g., 3F9A12)"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                    />
+                    <Button type="submit" disabled={!manualPeerInput.trim()}>
+                      Connect
+                    </Button>
+                  </form>
+                  <div className="relative flex items-center justify-center border-t pt-4">
+                    <span className="bg-white px-2 text-xs text-gray-500 absolute -top-3">OR</span>
+                  </div>
+                  <Button onClick={() => setShowScanner(true)} variant="outline" className="w-full">
+                    Scan QR Code via Camera
                   </Button>
                 </CardContent>
               </Card>
@@ -197,7 +285,7 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">Receive Files</h2>
-                <p className="text-gray-600">Share your QR code or scan sender's code</p>
+                <p className="text-gray-600">Share your QR code or connect to sender</p>
               </div>
               <Button variant="outline" onClick={() => setMode(null)}>
                 Change Mode
@@ -206,28 +294,46 @@ export default function Home() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* QR Code Generator */}
-              <QRCodeGenerator peerId={peerId} displayName={displayName} />
+              <QRCodeGenerator peerId={peerId} displayName={displayName} serverLanIp={serverLanIp} />
 
               {/* File Transfer Interface */}
               <FileTransferInterface
                 connected={connected}
                 transferProgress={transferProgress}
+                isPaused={isPaused}
                 onSendFile={sendFile}
                 onReceiveFile={receiveFile}
+                onPauseResume={isPaused ? resumeTransfer : pauseTransfer}
+                onCancelTransfer={cancelTransfer}
                 error={error}
               />
             </div>
 
-            {/* Scan Sender's QR */}
+            {/* Connect Card */}
             {!connected && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Connect to Sender</CardTitle>
-                  <CardDescription>Scan the sender's QR code to establish connection</CardDescription>
+                  <CardTitle>Connect to Remote Device</CardTitle>
+                  <CardDescription>Scan a QR code or enter the remote Peer ID manually</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <Button onClick={() => setShowScanner(true)} className="w-full">
-                    Scan QR Code
+                <CardContent className="space-y-4">
+                  <form onSubmit={handleManualConnect} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={manualPeerInput}
+                      onChange={(e) => setManualPeerInput(e.target.value)}
+                      placeholder="Enter Peer ID (e.g., 3F9A12)"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                    />
+                    <Button type="submit" disabled={!manualPeerInput.trim()}>
+                      Connect
+                    </Button>
+                  </form>
+                  <div className="relative flex items-center justify-center border-t pt-4">
+                    <span className="bg-white px-2 text-xs text-gray-500 absolute -top-3">OR</span>
+                  </div>
+                  <Button onClick={() => setShowScanner(true)} variant="outline" className="w-full">
+                    Scan QR Code via Camera
                   </Button>
                 </CardContent>
               </Card>

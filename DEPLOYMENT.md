@@ -1,219 +1,112 @@
-# P2P File Transfer App - Deployment Guide
+# P2P File Transfer App - Deployment & Command Guide
 
 ## Overview
 
-The P2P File Transfer App is a Node.js + React application that enables direct peer-to-peer file transfers between devices on the same WiFi network using WebRTC. This guide covers deployment and hosting setup.
+The P2P File Transfer App is a Node.js + React application that enables direct peer-to-peer file transfers between devices across **different networks** (5G, 4G cellular, Wi-Fi, or Internet) using native WebRTC technology without central file storage.
 
-## Technology Stack
+---
 
-- **Backend**: Node.js, Express, Socket.IO, TypeScript
-- **Frontend**: React, Vite, TypeScript, Tailwind CSS
-- **P2P**: WebRTC (simple-peer), STUN servers for NAT traversal
-- **QR Code**: QR code generation and scanning
-- **Testing**: Vitest
+## Command Reference Matrix
 
-## Prerequisites
+| Task / Action | `pnpm` Command | `npm` Command | `yarn` Command | `rtk` Proxy |
+| :--- | :--- | :--- | :--- | :--- |
+| **Install Dependencies** | `pnpm install` | `npm install` | `yarn install` | `rtk pnpm install` |
+| **Start Dev Server** | `pnpm dev` | `npm run dev` | `yarn dev` | `rtk pnpm dev` |
+| **Run Type Check** | `pnpm check` | `npm run check` | `yarn check` | `rtk pnpm check` |
+| **Run Unit Tests** | `pnpm test` | `npm test` | `yarn test` | `rtk pnpm test` |
+| **Build Production** | `pnpm build` | `npm run build` | `yarn build` | `rtk pnpm build` |
+| **Start Production** | `pnpm start` | `npm start` | `yarn start` | `rtk pnpm start` |
+| **Push DB Migrations**| `pnpm db:push` | `npm run db:push` | `yarn db:push` | `rtk pnpm db:push` |
 
-- Node.js 18+ with pnpm
-- Modern web browser with WebRTC support
-- Network access between devices on the same WiFi
+---
 
-## Local Development
+## Local Development Workflow
 
-### Setup
-
+### 1. Installation
 ```bash
-cd /home/ubuntu/p2p-file-transfer
+git clone https://github.com/amitbora007/p2p-file-transfer.git
+cd p2p-file-transfer
 pnpm install
 ```
 
-### Running the Development Server
-
+### 2. Run Development Server
 ```bash
-pnpm run dev
+pnpm dev
 ```
+The terminal will display your local address (`http://localhost:3000`) and network address (`http://192.168.3.94:3000`).
 
-The application will start on `http://localhost:3000`
-
-### Building for Production
-
+### 3. Type Checking & Testing
 ```bash
-pnpm run build
-```
+# Type check TypeScript files without emitting JS
+pnpm check
 
-This creates optimized production bundles in the `dist/` directory.
-
-### Running Production Build
-
-```bash
-pnpm run start
-```
-
-## Deployment on Manus
-
-The application is configured to deploy on Manus hosting with the following features:
-
-### Environment Variables
-
-The following environment variables are automatically injected:
-
-- `BUILT_IN_FORGE_API_KEY` - API key for Forge service
-- `BUILT_IN_FORGE_API_URL` - Forge API endpoint
-- `JWT_SECRET` - JWT signing secret
-- `OAUTH_SERVER_URL` - OAuth server endpoint
-- `OWNER_NAME` - Application owner name
-- `OWNER_OPEN_ID` - Owner OpenID
-- `VITE_ANALYTICS_ENDPOINT` - Analytics endpoint
-- `VITE_ANALYTICS_WEBSITE_ID` - Analytics website ID
-- `VITE_APP_ID` - Application ID
-- `VITE_APP_LOGO` - Application logo URL
-- `VITE_APP_TITLE` - Application title
-- `VITE_FRONTEND_FORGE_API_KEY` - Frontend Forge API key
-- `VITE_FRONTEND_FORGE_API_URL` - Frontend Forge API URL
-- `VITE_OAUTH_PORTAL_URL` - OAuth portal URL
-
-### Database
-
-The application uses Drizzle ORM with a configured database. To run migrations:
-
-```bash
-pnpm run db:push
-```
-
-### Deployment Steps
-
-1. **Create Checkpoint**: Save the current state as a checkpoint via the Management UI
-2. **Publish**: Click the Publish button in the Management UI
-3. **Monitor**: Check the deployment status in the Dashboard
-
-## Architecture
-
-### Backend (Node.js + Express)
-
-- **WebRTC Signaling Server**: Manages peer discovery and connection setup via Socket.IO
-- **REST API**: Serves static files and handles API requests
-- **Session Management**: Maintains peer connection sessions
-
-### Frontend (React + Vite)
-
-- **QR Code Generation**: Creates shareable QR codes for peer identification
-- **QR Code Scanner**: Scans QR codes to discover peers
-- **File Transfer UI**: Manages file selection and transfer progress
-- **Real-time Status**: Shows connection and transfer status
-
-### P2P Transfer
-
-- **WebRTC Data Channels**: Direct peer-to-peer file transfer
-- **STUN Servers**: Enables NAT traversal for devices behind firewalls
-- **Chunked Transfer**: Files are transferred in 64KB chunks for reliability
-- **Progress Tracking**: Real-time transfer speed and time remaining
-
-## Performance Optimization
-
-### Transfer Optimization
-
-- **Chunk Size**: 64KB chunks balance speed and reliability
-- **STUN Servers**: Multiple STUN servers for better connectivity
-- **Connection Pooling**: Efficient peer connection management
-
-### Build Optimization
-
-- **Code Splitting**: Vite automatically splits code for optimal loading
-- **Tree Shaking**: Unused code is removed during build
-- **Minification**: Production builds are minified and optimized
-
-## Security Considerations
-
-### WebRTC Security
-
-- **STUN Only**: Uses STUN servers (no TURN for simplicity)
-- **Peer Verification**: QR codes contain peer IDs for verification
-- **Local Network Only**: Designed for same-network transfers
-
-### Application Security
-
-- **CORS Configuration**: Socket.IO configured with appropriate CORS settings
-- **Input Validation**: File names and sizes are validated
-- **Error Handling**: Graceful error handling with user feedback
-
-## Testing
-
-### Unit Tests
-
-```bash
+# Run Vitest unit & integration test suite
 pnpm test
 ```
 
-Runs all unit tests for:
-- WebRTC connection logic
-- File transfer protocol
-- QR code generation and scanning
-- Error handling
+---
 
-### Integration Tests
+## Production Deployment Commands
 
-Integration tests verify:
-- End-to-end peer connection flow
-- File transfer with chunking
-- QR code scanning and connection
-- Error scenarios
+### Option A: Standard Node.js Server / Linux VPS (PM2)
 
-## Troubleshooting
+```bash
+# 1. Build client bundle and compile TypeScript server
+pnpm build
 
-### Connection Issues
+# 2. Start production server (Express + Static Vite assets)
+pnpm start
 
-1. **Ensure devices are on the same WiFi network**
-2. **Check firewall settings** - WebRTC may require specific ports
-3. **Verify STUN server connectivity** - Check browser console for errors
-4. **Restart the application** - Clear browser cache and reload
+# (Optional) Run persistently in background using PM2:
+npx pm2 start "pnpm start" --name "p2p-transfer"
+npx pm2 save
+```
 
-### File Transfer Issues
+### Option B: Docker Container Deployment
 
-1. **Check file size** - Large files may timeout
-2. **Verify connection status** - Ensure peers are connected before transferring
-3. **Check network stability** - Poor WiFi signal can cause transfer interruptions
-4. **Review browser console** - Look for WebRTC errors
+```bash
+# Build Docker image
+docker build -t p2p-file-transfer:latest .
 
-### Performance Issues
+# Run container on port 3000
+docker run -d -p 3000:3000 --name p2p-transfer p2p-file-transfer:latest
+```
 
-1. **Monitor network bandwidth** - Check for network congestion
-2. **Check device resources** - Ensure sufficient CPU and memory
-3. **Review transfer speed** - Compare with expected network speed
-4. **Enable browser developer tools** - Monitor WebRTC stats
+---
 
-## Monitoring and Logging
+## Environment Variables
 
-### Development Logs
+| Variable | Description | Default / Example |
+| :--- | :--- | :--- |
+| `PORT` | HTTP & WebSocket server port | `3000` |
+| `NODE_ENV` | Environment mode | `production` / `development` |
+| `VITE_PUBLIC_URL` | Public domain or tunnel URL for cross-internet QR codes | `https://p2p.yourdomain.com` |
+| `VITE_TURN_SERVER_URL` | Optional TURN server URL for strict firewall relay | `turn:turn.yourdomain.com:3478` |
+| `VITE_TURN_USERNAME` | TURN server authentication username | `myuser` |
+| `VITE_TURN_PASSWORD` | TURN server authentication password | `mypassword` |
 
-- **Browser Console**: Client-side logs and errors
-- **Server Console**: Server-side logs and WebRTC events
-- **Network Tab**: HTTP and WebSocket traffic
+---
 
-### Production Logs
+## Architecture Summary
 
-- **Application Logs**: Check Manus dashboard for logs
-- **Error Tracking**: Monitor error rates and patterns
-- **Performance Metrics**: Track transfer speeds and connection success rates
+```
+                 Internet
+                    │
+          ┌─────────┴─────────┐
+          │                   │
+      React A              React B
+          │                   │
+          └────── WebRTC ─────┘
+               DataChannel
+        (Direct P2P Binary Stream)
+```
 
-## Future Enhancements
+- **Node.js + Express + Socket.IO**: Purely acts as an ephemeral signaling server to exchange WebRTC offer/answer SDPs and ICE candidates.
+- **Native WebRTC DataChannel**: Streams binary chunks directly device-to-device with backpressure flow control (`bufferedAmount <= 2 MB`). Zero server bandwidth cost for files.
+- **STUN / TURN Servers**: STUN discovers public reflexive IP addresses across NATs/CGNAT. Optional TURN relay fallback handles strict symmetric firewalls.
 
-- [ ] Support for larger files with resumable transfers
-- [ ] Encryption for transferred files
-- [ ] Multiple simultaneous transfers
-- [ ] Transfer history and statistics
-- [ ] Mobile app support
-- [ ] Cloud backup integration
-- [ ] Advanced file filtering and organization
-
-## Support
-
-For issues or questions:
-
-1. Check the troubleshooting section above
-2. Review browser console for error messages
-3. Check server logs for WebRTC signaling errors
-4. Verify network connectivity between devices
+---
 
 ## License
 
-MIT
+MIT License

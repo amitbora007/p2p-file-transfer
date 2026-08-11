@@ -1,191 +1,185 @@
 # P2P File Transfer
 
-A fast, secure, and easy-to-use peer-to-peer file transfer application that works on local networks. Transfer files directly between devices without needing a central server using WebRTC technology.
+A fast, secure, and resilient peer-to-peer file transfer application designed for local and global networks. Transfer files of any size (from MBs to multi-GBs) directly between devices (PCs, phones, tablets) across **different networks** (5G, 4G cellular, Wi-Fi, or Internet) without a central storage server using native WebRTC technology.
+
+## Architecture
+
+```
+                 Internet
+                    │
+          ┌─────────┴─────────┐
+          │                   │
+      React A              React B
+          │                   │
+          └────── WebRTC ─────┘
+               DataChannel
+        (Direct P2P Binary Stream)
+```
+
+- **Node.js + Socket.IO**: Purely acts as an ephemeral signaling server to relay WebRTC offer/answer SDPs and ICE candidates. File data never touches the backend server.
+- **WebRTC DataChannel**: Direct device-to-device binary chunk streaming with backpressure flow control (`bufferedAmount`). Zero server bandwidth overhead.
+- **STUN / TURN Servers**: STUN discovers public reflexive IP addresses across NATs/CGNAT (5G/4G cellular networks). Optional TURN relay fallback for strict symmetric firewalls.
 
 ## Features
 
-- **Direct P2P Transfers**: Files are transferred directly between devices using WebRTC data channels—no server needed
-- **QR Code Sharing**: Generate and scan QR codes to easily connect devices on the same WiFi network
-- **Real-time Progress Tracking**: Monitor transfer speed, estimated time remaining, and file size in real-time
-- **Professional UI**: Clean, intuitive interface built with React, Tailwind CSS, and Radix UI components
-- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
-- **Inline Help Cards**: Contextual tooltips guide users through each step
-- **NAT Traversal**: STUN server configuration for reliable connections across different networks
-- **TypeScript**: Fully typed codebase for better developer experience
+- **Cross-Network Direct P2P Transfers**: Connect devices across **any network** (Jio 5G, Airtel Wi-Fi, 4G, or Internet) using native browser `RTCPeerConnection` and `RTCDataChannel` APIs—zero server file storage, 100% cross-browser compatible.
+- **Large File Flow Control (`bufferedAmount`)**: Automatic backpressure management pauses chunk reading whenever data channel buffers reach 2 MB, resuming as soon as the network drains. Allows 2 GB, 10 GB, or larger files to stream continuously at maximum speed without freezing.
+- **Pause / Resume / Cancel Controls**: Real-time controls on both Sender and Receiver devices to pause, resume, or abort ongoing transfers cleanly.
+- **Screen Wake Lock & Mobile Background Keep-Alive**: Screen Wake Lock API (`navigator.wakeLock`) prevents screen dimming/sleep during active transfers, while a silent audio keep-alive loop prevents mobile WebRTC suspension when screens lock.
+- **Instant Startup QR Display**: Your device's QR code, Peer ID, and Copy Link buttons are rendered prominently right on initial page load for fast connection setup.
+- **Multiple Connection Methods**:
+  - **Native Camera QR Scanning**: QR codes encode full web URLs (`http://192.168.x.x:3000/?peer=...`) so native mobile cameras (iOS/Android) scan and open the link automatically.
+  - **Manual Peer ID Connection**: Type a 6-character Peer ID directly to connect without needing camera permissions.
+  - **In-App Camera Scanner**: Scan QR codes within the web app with support for URLs, JSON payloads, and plain Peer IDs.
+- **Connected Button Guards**: Send and Receive action controls are dynamically enabled only when devices are actively connected to a peer.
+- **Real-time Progress & ETA Tracking**: Monitor speed (MB/s), accurate countdown time remaining (ETA), progress percentage, and total bytes transferred on both devices.
+- **Responsive & Modern UI**: Built with React 19, Tailwind CSS 4, Lucide Icons, and Radix UI.
+- **TypeScript**: Fully typed codebase for maximum safety and developer experience.
 
 ## Tech Stack
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS 4, Radix UI
-- **Backend**: Node.js, Express 4, Socket.IO
-- **P2P**: WebRTC with simple-peer
-- **QR Code**: qrcode library for generation, jsQR for scanning
+- **Frontend**: React 19, TypeScript, Tailwind CSS 4, Radix UI, Lucide Icons
+- **Backend**: Node.js 22, Express 4, Socket.IO 4
+- **P2P Engine**: Native WebRTC (`RTCPeerConnection` + `RTCDataChannel`), Multi-STUN & TURN support
+- **QR Code**: `qrcode` library for generation, `jsQR` for scanning
 - **Database**: MySQL with Drizzle ORM
 - **Testing**: Vitest for unit and integration tests
+
+## Environment Variables (Optional)
+
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `VITE_PUBLIC_URL` | Public domain / tunnel URL for hosted deployments | `https://p2p.yourdomain.com` |
+| `VITE_TURN_SERVER_URL` | TURN server URL for strict firewall relay | `turn:turn.yourdomain.com:3478` |
+| `VITE_TURN_USERNAME` | TURN server username | `user` |
+| `VITE_TURN_PASSWORD` | TURN server credential | `password` |
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 22.13.0 or higher
-- pnpm 10.4.1 or higher
-- A modern web browser with WebRTC support
+- **Node.js**: 22.13.0 or higher
+- **pnpm**: 10.4.1 or higher (or via `npx pnpm`)
+- Any internet or local network connection
 
 ### Installation
 
 1. Clone the repository:
-\`\`\`bash
+```bash
 git clone https://github.com/amitbora007/p2p-file-transfer.git
 cd p2p-file-transfer
-\`\`\`
+```
 
 2. Install dependencies:
-\`\`\`bash
+```bash
 pnpm install
-\`\`\`
+# or via npm / npx:
+# npx pnpm install
+# npm install
+```
 
-3. Start the development server:
-\`\`\`bash
+### Running Development Server
+
+Start the development server with live watch:
+```bash
 pnpm dev
-\`\`\`
+# or via npm / npx:
+# npm run dev
+# npx pnpm dev
+```
 
-The application will be available at \`http://localhost:3000\`
+On startup, the terminal logs local access URLs and local network IP addresses:
+```text
+[WebRTC] Signaling service initialized
+Server running locally on: http://localhost:3000/
+Network / Internet access (local network or public domain):
+  -> http://192.168.3.94:3000/
+```
 
-## Usage
+Open the **Network / Internet access URL** (or your public domain) on your phone or secondary laptop.
 
-### Sending Files
+## Command Reference
 
-1. Open the app on your device
-2. Enter a device name (e.g., "My Laptop")
-3. Click "Send Files"
-4. Share the generated QR code with the receiving device
-5. Select files to transfer
-6. Monitor progress in real-time
+| Action | pnpm Command | npm Command | RTK Command |
+| :--- | :--- | :--- | :--- |
+| **Start Dev Server** | `pnpm dev` | `npm run dev` | `rtk pnpm dev` |
+| **Type Check** | `pnpm check` | `npm run check` | `rtk pnpm check` |
+| **Run Unit Tests** | `pnpm test` | `npm test` | `rtk pnpm test` |
+| **Production Build** | `pnpm build` | `npm run build` | `rtk pnpm build` |
+| **Start Production** | `pnpm start` | `npm start` | `rtk pnpm start` |
+| **Database Migration**| `pnpm db:push` | `npm run db:push` | `rtk pnpm db:push` |
 
-### Receiving Files
+## How to Connect Devices
 
-1. Open the app on your device
-2. Enter a device name
-3. Click "Receive Files"
-4. Scan the QR code from the sending device
-5. Files will automatically download when received
+You can connect two devices using any of the following methods:
+
+### Method 1: Scan QR Code with Mobile Camera
+1. Open the app on Device A (`http://192.168.3.94:3000/`).
+2. Open the camera app on Device B (e.g., phone on 5G/4G) and point it at Device A's QR code.
+3. Tap the popup link (`http://192.168.3.94:3000/?peer=...`) to open the app and connect automatically.
+
+### Method 2: Manual Peer ID Connection
+1. Note Device A's 6-character **Peer ID** (e.g., `25CDB2D7AA66`).
+2. On Device B, type `25CDB2D7AA66` into the **"Connect to Remote Device"** text box and click **Connect**.
+
+### Method 3: In-App Camera Scanner
+1. Display the QR code on Device A.
+2. On Device B, click **Scan QR Code via Camera** to scan Device A's screen using the browser camera.
+
+Once connected (`Status: Connected`), all Send and Receive action controls activate instantly.
 
 ## Project Structure
 
-\`\`\`
+```
 ├── client/                    # React frontend
 │   ├── src/
-│   │   ├── components/       # Reusable UI components
-│   │   ├── hooks/            # Custom React hooks (WebRTC logic)
-│   │   ├── pages/            # Page components
+│   │   ├── components/       # UI components (QRCodeGenerator, QRCodeScanner, FileTransferInterface, TransferProgressBar)
+│   │   ├── hooks/            # Custom React hooks (useWebRTC)
+│   │   ├── pages/            # Page components (Home.tsx)
 │   │   ├── App.tsx           # Main app component
 │   │   └── main.tsx          # Entry point
 │   └── index.html
 ├── server/                    # Node.js backend
 │   ├── routers.ts            # tRPC procedures
 │   ├── db.ts                 # Database queries
-│   ├── services/             # Business logic
-│   │   └── webrtcSignaling.ts # WebRTC signaling service
-│   └── _core/                # Framework internals
+│   ├── services/             # Business logic (WebRTC signaling via Socket.IO)
+│   └── _core/                # Server setup and Vite integration
 ├── drizzle/                  # Database schema and migrations
 ├── shared/                   # Shared types and constants
 └── package.json
-\`\`\`
-
-## Development
-
-### Running Tests
-
-\`\`\`bash
-pnpm test
-\`\`\`
-
-### Type Checking
-
-\`\`\`bash
-pnpm check
-\`\`\`
-
-### Building for Production
-
-\`\`\`bash
-pnpm build
-\`\`\`
-
-### Starting Production Server
-
-\`\`\`bash
-pnpm start
-\`\`\`
+```
 
 ## How It Works
 
 ### WebRTC Signaling
+1. Devices register with the Socket.IO signaling server upon loading the page.
+2. Peer IDs are exchanged via QR codes, direct URLs (`?peer=...`), or manual input.
+3. WebRTC offer/answer SDP signals and ICE candidates are relayed through Socket.IO.
+4. Once connected, WebRTC data channels establish a direct peer-to-peer connection.
 
-1. Devices connect to a signaling server via Socket.IO
-2. Peer IDs are exchanged and encoded in QR codes
-3. When a QR code is scanned, the receiving device connects to the sender via WebRTC
-4. STUN servers help establish connections across NAT boundaries
+### Ephemeral File Transfer & Flow Control
+1. Files are split into 64KB binary chunks.
+2. Chunks stream directly across WebRTC data channels using backpressure flow control (`bufferedAmount <= 2 MB`).
+3. Progress percentage, speed (MB/s), and estimated time remaining update in real time on both devices.
+4. Received chunks assemble into a Blob on the remote peer and trigger automatic browser download.
 
-### File Transfer
+## Security & Privacy
 
-1. Files are split into 64KB chunks
-2. Chunks are sent through WebRTC data channels
-3. Progress is tracked in real-time with speed and time calculations
-4. Files are reconstructed on the receiving end and auto-downloaded
-
-### Security
-
-- Direct P2P transfers mean files never touch a central server
-- WebRTC connections are encrypted by default
-- No file storage on servers—transfers are ephemeral
-
-## Performance
-
-- **Transfer Speed**: Limited by WiFi bandwidth (typically 10-100 MB/s)
-- **Chunk Size**: 64KB for optimal balance between speed and reliability
-- **Progress Updates**: Real-time calculations with smooth animations
-- **NAT Traversal**: STUN servers enable connections through most firewalls
+- **No Server Storage**: Files stream directly device-to-device.
+- **Encrypted Transfers**: WebRTC data channels are encrypted using DTLS/SRTP by default.
+- **Ephemeral Signaling**: Peer signaling connections are ephemeral and reset on reload.
 
 ## Browser Support
 
-- Chrome/Chromium 90+
+- Chrome / Chromium 90+
+- Safari 14.1+ (iOS & macOS)
 - Firefox 88+
-- Safari 14.1+
 - Edge 90+
-
-## Limitations
-
-- Devices must be on the same WiFi network (or have internet connectivity for STUN)
-- File transfers are not encrypted end-to-end (WebRTC default encryption)
-- No persistent transfer history (resets on page reload)
-- Maximum file size limited by available RAM
-
-## Future Enhancements
-
-- [ ] File encryption with user-provided passwords
-- [ ] Transfer history and statistics
-- [ ] Drag-and-drop file upload
-- [ ] Pause/resume transfers
-- [ ] Multiple simultaneous transfers
-- [ ] Custom TURN server support
-- [ ] Mobile app (React Native)
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT License - see LICENSE file for details
-
-## Support
-
-For issues, questions, or suggestions, please open an issue on GitHub.
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Author
 
-Created by amitbora007
-
----
-
-**Note**: This project is designed for local network file transfers. For transferring files over the internet, consider using a VPN or setting up a custom TURN server.
+Created by [amitbora007](https://github.com/amitbora007)

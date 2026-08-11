@@ -8,21 +8,32 @@ import { HelpTooltip } from "@/components/HelpTooltip";
 interface QRCodeGeneratorProps {
   peerId: string;
   displayName: string;
+  serverLanIp?: string;
 }
 
-export function QRCodeGenerator({ peerId, displayName }: QRCodeGeneratorProps) {
+export function QRCodeGenerator({ peerId, displayName, serverLanIp }: QRCodeGeneratorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const getOrigin = () => {
+    if (typeof window === "undefined") return "";
+    const envPublicUrl = (import.meta as any).env?.VITE_PUBLIC_URL;
+    if (envPublicUrl) return envPublicUrl.replace(/\/$/, "");
+    const { protocol, hostname, port } = window.location;
+    const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+    const hostToUse = isLocalhost && serverLanIp ? serverLanIp : hostname;
+    const portStr = port ? `:${port}` : "";
+    return `${protocol}//${hostToUse}${portStr}`;
+  };
+
+  const connectUrl = getOrigin()
+    ? `${getOrigin()}/?peer=${peerId}&name=${encodeURIComponent(displayName)}`
+    : "";
 
   useEffect(() => {
     if (!peerId || !canvasRef.current) return;
 
-    const qrData = JSON.stringify({
-      peerId,
-      displayName,
-      timestamp: Date.now(),
-    });
-
-    QRCode.toCanvas(canvasRef.current, qrData, {
+    // Use full connection URL so native camera apps can open it directly
+    QRCode.toCanvas(canvasRef.current, connectUrl || peerId, {
       width: 300,
       margin: 2,
       color: {
@@ -30,11 +41,16 @@ export function QRCodeGenerator({ peerId, displayName }: QRCodeGeneratorProps) {
         light: "#FFFFFF",
       },
     });
-  }, [peerId, displayName]);
+  }, [peerId, displayName, connectUrl]);
 
-  const handleCopy = () => {
-    const qrData = JSON.stringify({ peerId, displayName });
-    navigator.clipboard.writeText(qrData);
+  const handleCopyPeerId = () => {
+    navigator.clipboard.writeText(peerId);
+  };
+
+  const handleCopyUrl = () => {
+    if (connectUrl) {
+      navigator.clipboard.writeText(connectUrl);
+    }
   };
 
   const handleDownload = () => {
@@ -52,9 +68,9 @@ export function QRCodeGenerator({ peerId, displayName }: QRCodeGeneratorProps) {
         <div className="flex items-center justify-between">
           <div>
             <CardTitle>Your QR Code</CardTitle>
-            <CardDescription>Share this QR code with others to connect</CardDescription>
+            <CardDescription>Share this QR code or link to connect</CardDescription>
           </div>
-          <HelpTooltip content="Share this QR code with another device on the same WiFi network. They can scan it to connect and start transferring files." />
+          <HelpTooltip content="Scan this QR code with a camera or click Copy Link to share. Connects directly across any network (5G, 4G, Wi-Fi, or Internet)." />
         </div>
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-6">
@@ -62,31 +78,40 @@ export function QRCodeGenerator({ peerId, displayName }: QRCodeGeneratorProps) {
           <canvas ref={canvasRef} />
         </div>
 
-        <div className="w-full space-y-2">
-          <div className="text-center">
+        <div className="w-full space-y-2 text-center">
+          <div>
             <p className="text-sm text-gray-600">Your Peer ID</p>
-            <p className="text-lg font-mono font-bold text-gray-900">{peerId}</p>
+            <p className="text-xl font-mono font-bold text-blue-600">{peerId}</p>
           </div>
         </div>
 
-        <div className="flex gap-2 w-full">
+        <div className="flex flex-wrap gap-2 w-full">
           <Button
             variant="outline"
             size="sm"
-            onClick={handleCopy}
-            className="flex-1"
+            onClick={handleCopyPeerId}
+            className="flex-1 min-w-[120px]"
           >
             <Copy className="w-4 h-4 mr-2" />
-            Copy Data
+            Copy Peer ID
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopyUrl}
+            className="flex-1 min-w-[120px]"
+          >
+            <Copy className="w-4 h-4 mr-2" />
+            Copy Link
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handleDownload}
-            className="flex-1"
+            className="flex-1 min-w-[120px]"
           >
             <Download className="w-4 h-4 mr-2" />
-            Download
+            Download QR
           </Button>
         </div>
       </CardContent>
