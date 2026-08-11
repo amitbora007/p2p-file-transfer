@@ -30,6 +30,7 @@ const getIceServers = (): RTCIceServer[] => {
     { urls: "stun:stun2.l.google.com:19302" },
     { urls: "stun:stun3.l.google.com:19302" },
     { urls: "stun:stun4.l.google.com:19302" },
+    { urls: "stun:stun.cloudflare.com:3478" },
     { urls: "stun:stun.services.mozilla.com" },
     { urls: "stun:global.stun.twilio.com:3478" },
     { urls: "stun:stun.xten.com" },
@@ -37,22 +38,13 @@ const getIceServers = (): RTCIceServer[] => {
     // Required for cross-network connections (5G ↔ WiFi, different ISPs)
     // where Carrier-Grade NAT (CG-NAT) blocks direct peer connections.
     {
-      urls: "turn:openrelay.metered.ca:80",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:443",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:443?transport=tcp",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:80?transport=tcp",
+      urls: [
+        "turn:openrelay.metered.ca:80",
+        "turn:openrelay.metered.ca:443",
+        "turn:openrelay.metered.ca:443?transport=tcp",
+        "turn:openrelay.metered.ca:80?transport=tcp",
+        "turns:openrelay.metered.ca:443?transport=tcp",
+      ],
       username: "openrelayproject",
       credential: "openrelayproject",
     },
@@ -106,6 +98,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
   const receiveStartTimeRef = useRef<number | null>(null);
 
   const remoteIdRef = useRef<string>("");
+  const pendingCandidatesRef = useRef<any[]>([]);
   const wakeLockRef = useRef<any>(null);
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -347,6 +340,8 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         });
         pcRef.current = pc;
 
+        pendingCandidatesRef.current = [];
+
         pc.onicecandidate = (event) => {
           if (event.candidate && socketRef.current) {
             socketRef.current.emit("signal", {
@@ -355,6 +350,19 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
               from: peerIdRef.current,
               to: remoteId,
             });
+          }
+        };
+
+        pc.oniceconnectionstatechange = () => {
+          console.log(`[WebRTC] ICE Connection state: ${pc.iceConnectionState}`);
+          if (["connected", "completed"].includes(pc.iceConnectionState)) {
+            setConnected(true);
+            setError("");
+          } else if (pc.iceConnectionState === "failed") {
+            console.warn("[WebRTC] ICE Connection failed. Attempting ICE restart...");
+            if (typeof pc.restartIce === "function") {
+              pc.restartIce();
+            }
           }
         };
 
@@ -486,8 +494,24 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       if (!pc) return;
 
       try {
+        const processPendingCandidates = async () => {
+          if (!pcRef.current) return;
+          while (pendingCandidatesRef.current.length > 0) {
+            const cand = pendingCandidatesRef.current.shift();
+            if (cand) {
+              try {
+                await pcRef.current.addIceCandidate(new RTCIceCandidate(cand));
+                console.log("[WebRTC] Added buffered ICE candidate successfully");
+              } catch (e) {
+                console.warn("[WebRTC] Error adding buffered candidate:", e);
+              }
+            }
+          }
+        };
+
         if (data.type === "offer") {
           await pc.setRemoteDescription(new RTCSessionDescription(data.data));
+          await processPendingCandidates();
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socketRef.current?.emit("signal", {
@@ -498,8 +522,14 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
           });
         } else if (data.type === "answer") {
           await pc.setRemoteDescription(new RTCSessionDescription(data.data));
+          await processPendingCandidates();
         } else if (data.type === "ice-candidate" && data.data) {
-          await pc.addIceCandidate(new RTCIceCandidate(data.data));
+          if (pc.remoteDescription && pc.remoteDescription.type) {
+            await pc.addIceCandidate(new RTCIceCandidate(data.data));
+          } else {
+            console.log("[WebRTC] Buffering early ICE candidate until remote description is set");
+            pendingCandidatesRef.current.push(data.data);
+          }
         }
       } catch (err: any) {
         console.error("[WebRTC] Error handling signal:", err);
