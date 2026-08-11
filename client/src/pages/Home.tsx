@@ -73,7 +73,7 @@ export default function Home() {
 
   const handleManualConnect = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanId = manualPeerInput.trim();
+    const cleanId = manualPeerInput.trim().toUpperCase();
     if (cleanId) {
       connectToPeer(cleanId);
     }
@@ -165,9 +165,12 @@ export default function Home() {
                     <input
                       type="text"
                       value={manualPeerInput}
-                      onChange={(e) => setManualPeerInput(e.target.value)}
+                      onChange={(e) => setManualPeerInput(e.target.value.toUpperCase())}
+                      autoCapitalize="characters"
+                      autoCorrect="off"
+                      spellCheck="false"
                       placeholder="Enter Peer ID (e.g., 3F9A12)"
-                      className="w-full sm:flex-1 h-11 px-4 font-mono text-sm font-semibold tracking-wider rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                      className="uppercase w-full sm:flex-1 h-11 px-4 font-mono text-sm font-semibold tracking-wider rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
                     />
                     <Button
                       type="submit"

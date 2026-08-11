@@ -112,14 +112,16 @@ class WebRTCSignalingService {
         let session = this.sessions.get(socket.id);
         let peerId: string;
 
+        const normPreferred = data.preferredPeerId ? data.preferredPeerId.trim().toUpperCase() : undefined;
+
         if (session) {
           // Existing session — update display name and peerId if preferredPeerId changed
           const oldPeerId = session.peerId;
-          if (data.preferredPeerId && data.preferredPeerId !== oldPeerId) {
-            console.log(`[WebRTC] Updating socket ${socket.id} Peer ID: ${oldPeerId} -> ${data.preferredPeerId}`);
+          if (normPreferred && normPreferred !== oldPeerId) {
+            console.log(`[WebRTC] Updating socket ${socket.id} Peer ID: ${oldPeerId} -> ${normPreferred}`);
             this.peerIdToSocketId.delete(oldPeerId);
-            session.peerId = data.preferredPeerId;
-            this.peerIdToSocketId.set(data.preferredPeerId, socket.id);
+            session.peerId = normPreferred;
+            this.peerIdToSocketId.set(normPreferred, socket.id);
           }
           const nameChanged = session.displayName !== data.displayName;
           session.displayName = data.displayName;
@@ -130,7 +132,7 @@ class WebRTCSignalingService {
           }
         } else {
           // New connection — reuse the client's preferred Peer ID and evict any stale dead session
-          const preferred = data.preferredPeerId;
+          const preferred = normPreferred;
           if (preferred) {
             const staleSocketId = this.peerIdToSocketId.get(preferred);
             if (staleSocketId && staleSocketId !== socket.id) {
@@ -167,14 +169,10 @@ class WebRTCSignalingService {
 
       socket.on("signal", (data: SignalingMessage) => {
         const fromSession = this.sessions.get(socket.id);
-        if (!fromSession) {
-          console.warn(`[WebRTC] Signal received from unregistered peer: ${socket.id}`);
-          return;
-        }
+        if (!fromSession) return;
 
-        // Fast O(1) target lookup index
-        const targetSocketId = this.peerIdToSocketId.get(data.to) || null;
-
+        const targetPeerIdUpper = data.to ? data.to.toUpperCase() : "";
+        const targetSocketId = this.peerIdToSocketId.get(targetPeerIdUpper) || null;
         if (!targetSocketId) {
           console.warn(`[WebRTC] Target peer not found: ${data.to}`);
           socket.emit("signal-error", { message: "Target peer not found" });

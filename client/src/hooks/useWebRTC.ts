@@ -689,8 +689,10 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         return;
       }
 
-      console.log(`[WebRTC] Initiating connection to ${targetPeerId}`);
-      remoteIdRef.current = targetPeerId;
+      const normalizedPeerId = targetPeerId.trim().toUpperCase();
+
+      console.log(`[WebRTC] Initiating connection to ${normalizedPeerId}`);
+      remoteIdRef.current = normalizedPeerId;
       setError("");
 
       // Clean URL search params immediately so refreshing won't re-trigger auto-connect to old peer
@@ -707,12 +709,12 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       }
 
       // 1. Attempt WebRTC P2P first
-      createPeerConnection(true, targetPeerId);
+      createPeerConnection(true, normalizedPeerId);
 
       // 2. Relay fallback timer: if direct P2P data channel fails to open in 2.5s
       // (due to carrier CG-NAT blocking STUN/TURN), set connected=true so WebSocket relay enables seamlessly!
       setTimeout(() => {
-        if (!connected && remoteIdRef.current === targetPeerId) {
+        if (!connected && remoteIdRef.current === normalizedPeerId) {
           console.log("[WebRTC Relay] Enabling Socket.IO relay mode for cross-network connection");
           setConnected(true);
           setError("");
