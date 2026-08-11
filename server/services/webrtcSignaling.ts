@@ -251,12 +251,27 @@ class WebRTCSignalingService {
         }
       });
 
-      socket.on("explicit-disconnect", (data: { to: string }) => {
+      socket.on("explicit-disconnect", (data?: { to?: string }) => {
         const fromSession = this.sessions.get(socket.id);
         if (!fromSession) return;
-        const targetSocketId = this.peerIdToSocketId.get(data.to) || null;
-        if (targetSocketId) {
-          console.log(`[WebRTC] Explicit disconnect from ${fromSession.peerId} to ${data.to}`);
+
+        const targetSocketIds = new Set<string>();
+
+        // 1. Direct lookup by peer ID
+        if (data?.to) {
+          const directSocketId = this.peerIdToSocketId.get(data.to);
+          if (directSocketId) targetSocketIds.add(directSocketId);
+        }
+
+        // 2. Fallback: all connected sockets in tracking map
+        const conns = this.peerConnections.get(socket.id);
+        if (conns) {
+          conns.forEach((tid) => targetSocketIds.add(tid));
+        }
+
+        console.log(`[WebRTC] Explicit disconnect from ${fromSession.peerId} (${socket.id}) to ${targetSocketIds.size} peers`);
+
+        targetSocketIds.forEach((targetSocketId) => {
           const conn1 = this.peerConnections.get(socket.id);
           if (conn1) conn1.delete(targetSocketId);
           const conn2 = this.peerConnections.get(targetSocketId);
@@ -266,7 +281,7 @@ class WebRTCSignalingService {
             peerId: fromSession.peerId,
             explicit: true,
           });
-        }
+        });
       });
 
       socket.on("get-peer-info", (callback) => {

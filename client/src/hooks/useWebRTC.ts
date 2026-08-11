@@ -877,11 +877,15 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
   const disconnectPeer = useCallback(() => {
     console.log("[WebRTC] Manually disconnecting peer session & generating new Peer ID...");
 
-    if (remoteIdRef.current) {
+    const targetPeerId = remoteIdRef.current || remotePeerInfo?.peerId;
+
+    if (targetPeerId) {
       if (socketRef.current?.connected) {
-        socketRef.current.emit("explicit-disconnect", { to: remoteIdRef.current });
+        socketRef.current.emit("explicit-disconnect", { to: targetPeerId });
       }
       sendDataToPeer({ type: "file-cancel" });
+    } else if (socketRef.current?.connected) {
+      socketRef.current.emit("explicit-disconnect", {});
     }
 
     if (dataChannelRef.current) {
@@ -947,7 +951,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       url.searchParams.delete("peerId");
       window.history.replaceState({}, document.title, url.toString());
     }
-  }, [sendDataToPeer]);
+  }, [remotePeerInfo?.peerId, sendDataToPeer]);
 
   return {
     peerId,
