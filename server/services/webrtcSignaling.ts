@@ -37,9 +37,13 @@ class WebRTCSignalingService {
   private peerConnections: Map<string, Set<string>> = new Map();
 
   constructor(httpServer: HTTPServer) {
+    const corsOrigin = process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(",").map(s => s.trim())
+      : "*";
+
     this.io = new SocketIOServer(httpServer, {
       cors: {
-        origin: "*",
+        origin: corsOrigin,
         methods: ["GET", "POST"],
       },
       transports: ["websocket", "polling"],

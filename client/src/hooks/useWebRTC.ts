@@ -377,7 +377,8 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
   // Initialize socket connection once on mount with resilient heartbeat
   useEffect(() => {
-    const socket = io(window.location.origin, {
+    const signalingUrl = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+    const socket = io(signalingUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionDelay: 1000,
