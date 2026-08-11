@@ -224,7 +224,7 @@ export function FileTransferInterface({
             </Button>
           )}
 
-          {transferProgress && (
+          {transferProgress && transferProgress.direction === "send" && (
             <TransferProgressBar
               transfer={transferProgress}
               isPaused={isPaused}
@@ -241,7 +241,7 @@ export function FileTransferInterface({
             />
           )}
 
-          {!transferProgress && !selectedFile && (
+          {(!transferProgress || transferProgress.direction !== "send") && !selectedFile && (
             <div className="text-center py-2">
               <p className="text-sm text-gray-500">No file selected</p>
             </div>
@@ -264,7 +264,7 @@ export function FileTransferInterface({
           </div>
         </CardHeader>
         <CardContent>
-          {transferProgress && !selectedFile ? (
+          {transferProgress && transferProgress.direction === "receive" ? (
             <div className="space-y-3">
               <TransferProgressBar
                 transfer={transferProgress}

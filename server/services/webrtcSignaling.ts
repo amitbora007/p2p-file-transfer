@@ -130,6 +130,21 @@ class WebRTCSignalingService {
           connections.add(targetSocketId);
         }
 
+        // If offer or initial connection, notify both sides that peer-connected
+        if (data.type === "offer") {
+          const targetSession = this.sessions.get(targetSocketId);
+          if (targetSession) {
+            this.io.to(socket.id).emit("peer-connected", {
+              peerId: targetSession.peerId,
+              displayName: targetSession.displayName,
+            });
+            this.io.to(targetSocketId).emit("peer-connected", {
+              peerId: fromSession.peerId,
+              displayName: fromSession.displayName,
+            });
+          }
+        }
+
         // Forward the signal
         this.io.to(targetSocketId).emit("signal", {
           type: data.type,

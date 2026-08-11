@@ -15,6 +15,7 @@ export interface TransferProgress {
   transferredBytes: number; // actual bytes transferred
   speed: number; // MB/s
   timeRemaining: number; // seconds
+  direction?: "send" | "receive";
 }
 
 export interface UseWebRTCOptions {
@@ -266,6 +267,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         transferredBytes,
         speed,
         timeRemaining,
+        direction: "receive",
       });
     } else if (message.type === "file-complete") {
       receiveStartTimeRef.current = null;
@@ -570,6 +572,18 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       }
     });
 
+    socket.on("peer-connected", (data: any) => {
+      console.log(`[WebRTC] Peer connected: ${data.peerId} (${data.displayName})`);
+      setRemotePeerInfo({
+        peerId: data.peerId,
+        displayName: data.displayName || "Connected Peer",
+        isInitiator: false,
+      });
+      remoteIdRef.current = data.peerId;
+      setConnected(true);
+      setError("");
+    });
+
     socket.on("peer-disconnected", (data: any) => {
       console.log(`[WebRTC] Peer disconnected: ${data.peerId}`);
       if (pcRef.current) {
@@ -758,7 +772,13 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
               transferredBytes,
               speed,
               timeRemaining,
+              direction: "send",
             });
+
+            // Yield to event loop every 3 chunks so UI renders progress & mobile UI stays responsive
+            if (sentChunks % 3 === 0) {
+              await new Promise((r) => setTimeout(r, 10));
+            }
 
             sendChunk(end);
           }
