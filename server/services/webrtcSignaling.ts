@@ -203,11 +203,11 @@ class WebRTCSignalingService {
           return;
         }
 
-        // Track connection
-        const connections = this.peerConnections.get(socket.id);
-        if (connections) {
-          connections.add(targetSocketId);
-        }
+        // Track connection in BOTH directions
+        const conn1 = this.peerConnections.get(socket.id);
+        if (conn1) conn1.add(targetSocketId);
+        const conn2 = this.peerConnections.get(targetSocketId);
+        if (conn2) conn2.add(socket.id);
 
         // If offer or initial connection, notify both sides that peer-connected
         if (data.type === "offer") {
@@ -257,25 +257,30 @@ class WebRTCSignalingService {
 
         const targetSocketIds = new Set<string>();
 
-        // 1. Direct lookup by peer ID
+        // 1. Direct lookup by target peer ID
         if (data?.to) {
           const directSocketId = this.peerIdToSocketId.get(data.to);
           if (directSocketId) targetSocketIds.add(directSocketId);
         }
 
-        // 2. Fallback: all connected sockets in tracking map
-        const conns = this.peerConnections.get(socket.id);
-        if (conns) {
-          conns.forEach((tid) => targetSocketIds.add(tid));
+        // 2. All connected sockets in socket.id's tracking map
+        const conns1 = this.peerConnections.get(socket.id);
+        if (conns1) {
+          conns1.forEach((tid) => targetSocketIds.add(tid));
         }
 
-        console.log(`[WebRTC] Explicit disconnect from ${fromSession.peerId} (${socket.id}) to ${targetSocketIds.size} peers`);
+        // 3. Reverse lookup in all peerConnections sets containing socket.id
+        for (const [otherSocketId, connSet] of Array.from(this.peerConnections.entries())) {
+          if (connSet.has(socket.id)) {
+            targetSocketIds.add(otherSocketId);
+          }
+        }
+
+        console.log(`[WebRTC] Explicit disconnect from ${fromSession.peerId} (${socket.id}) notifying ${targetSocketIds.size} target peers`);
 
         targetSocketIds.forEach((targetSocketId) => {
-          const conn1 = this.peerConnections.get(socket.id);
-          if (conn1) conn1.delete(targetSocketId);
-          const conn2 = this.peerConnections.get(targetSocketId);
-          if (conn2) conn2.delete(socket.id);
+          this.peerConnections.get(socket.id)?.delete(targetSocketId);
+          this.peerConnections.get(targetSocketId)?.delete(socket.id);
 
           this.io.to(targetSocketId).emit("peer-disconnected", {
             peerId: fromSession.peerId,

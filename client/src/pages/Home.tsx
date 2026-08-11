@@ -200,18 +200,18 @@ export default function Home() {
                   <CardDescription className="text-xs text-slate-500">Scan a QR code or enter the remote Peer ID manually</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <form onSubmit={handleManualConnect} className="flex gap-2.5">
+                  <form onSubmit={handleManualConnect} className="flex flex-col sm:flex-row gap-2.5 w-full">
                     <input
                       type="text"
                       value={manualPeerInput}
                       onChange={(e) => setManualPeerInput(e.target.value)}
                       placeholder="Enter Peer ID (e.g., 3F9A12)"
-                      className="flex-1 h-11 px-4 font-mono text-sm font-semibold tracking-wider rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                      className="w-full sm:flex-1 h-11 px-4 font-mono text-sm font-semibold tracking-wider rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
                     />
                     <Button
                       type="submit"
                       disabled={!manualPeerInput.trim()}
-                      className="h-11 px-6 rounded-xl font-medium text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 flex items-center gap-2"
+                      className="w-full sm:w-auto h-11 px-6 rounded-xl font-medium text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 shrink-0"
                     >
                       Connect
                       <ArrowRight className="w-4 h-4" />
