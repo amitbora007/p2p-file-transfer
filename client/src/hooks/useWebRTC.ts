@@ -857,7 +857,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
   }, []);
 
   const disconnectPeer = useCallback(() => {
-    console.log("[WebRTC] Manually disconnecting peer session...");
+    console.log("[WebRTC] Manually disconnecting peer session & generating new Peer ID...");
 
     if (remoteIdRef.current) {
       sendDataToPeer({ type: "file-cancel" });
@@ -889,6 +889,37 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     setRemotePeerInfo(null);
     setTransferProgress(null);
     setError("");
+
+    // Generate brand new Peer ID & discard old one
+    const newPeerId = Array.from(crypto.getRandomValues(new Uint8Array(3)))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+      .toUpperCase();
+
+    try {
+      localStorage.setItem("p2p_preferred_peer_id", newPeerId);
+    } catch (e) {}
+
+    setPeerId(newPeerId);
+    peerIdRef.current = newPeerId;
+
+    if (socketRef.current?.connected) {
+      const { displayName: curName, isInitiator: curInit } = optionsRef.current;
+      socketRef.current.emit(
+        "register-peer",
+        { displayName: curName, isInitiator: curInit, preferredPeerId: newPeerId },
+        (response: any) => {
+          if (response?.success && response.peerId) {
+            setPeerId(response.peerId);
+            peerIdRef.current = response.peerId;
+            try {
+              localStorage.setItem("p2p_preferred_peer_id", response.peerId);
+            } catch (e) {}
+            console.log(`[WebRTC] Successfully re-registered with new Peer ID: ${response.peerId}`);
+          }
+        }
+      );
+    }
 
     if (typeof window !== "undefined" && window.history.replaceState) {
       const url = new URL(window.location.href);
