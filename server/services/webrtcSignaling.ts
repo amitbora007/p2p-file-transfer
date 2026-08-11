@@ -33,23 +33,75 @@ export interface SignalingMessage {
 
 class WebRTCSignalingService {
   private io: SocketIOServer;
-  private sessions: Map<string, PeerSession> = new Map();
-  private peerConnections: Map<string, Set<string>> = new Map();
+  private sessions: Map<string, PeerSession> = new Map(); // socketId -> PeerSession
+  private peerIdToSocketId: Map<string, string> = new Map(); // peerId -> socketId (O(1) lookup index)
+  private peerConnections: Map<string, Set<string>> = new Map(); // socketId -> Set<connectedSocketId>
+  private sweeperInterval: NodeJS.Timeout | null = null;
 
   constructor(httpServer: HTTPServer) {
     const corsOrigin = process.env.CORS_ORIGIN
       ? process.env.CORS_ORIGIN.split(",").map(s => s.trim())
       : "*";
 
+    // Senior Backend Socket.IO Tuning:
+    // - pingInterval: 10s & pingTimeout: 5s -> detect dead 4G sockets fast (5s threshold)
+    // - maxHttpBufferSize: 10MB cap per chunk payload
+    // - perMessageDeflate: false -> disable compression to reduce CPU overhead on high-throughput binary chunks
     this.io = new SocketIOServer(httpServer, {
       cors: {
         origin: corsOrigin,
         methods: ["GET", "POST"],
       },
       transports: ["websocket", "polling"],
+      pingInterval: 10000,
+      pingTimeout: 5000,
+      maxHttpBufferSize: 10 * 1024 * 1024,
+      perMessageDeflate: false,
     });
 
     this.setupEventHandlers();
+    this.startStaleSessionSweeper();
+  }
+
+  /**
+   * Background Memory Sweeper (runs every 30s):
+   * Purges orphaned sessions whose socket disconnected or exceeded 2 hours max TTL.
+   */
+  private startStaleSessionSweeper() {
+    this.sweeperInterval = setInterval(() => {
+      const now = Date.now();
+      const maxAgeMs = 2 * 60 * 60 * 1000; // 2 hours
+
+      for (const [socketId, session] of Array.from(this.sessions.entries())) {
+        const socketExists = this.io.sockets.sockets.has(socketId);
+        const isExpired = now - session.createdAt > maxAgeMs;
+
+        if (!socketExists || isExpired) {
+          console.log(`[WebRTC Sweeper] Purging dead/stale session: ${session.peerId} (${socketId})`);
+          this.removeSession(socketId);
+        }
+      }
+    }, 30000);
+  }
+
+  private removeSession(socketId: string) {
+    const session = this.sessions.get(socketId);
+    if (session) {
+      if (session.peerId) {
+        this.peerIdToSocketId.delete(session.peerId);
+      }
+      this.sessions.delete(socketId);
+
+      const connections = this.peerConnections.get(socketId);
+      if (connections) {
+        connections.forEach((connectedSocketId) => {
+          this.io.to(connectedSocketId).emit("peer-disconnected", {
+            peerId: session.peerId,
+          });
+        });
+      }
+      this.peerConnections.delete(socketId);
+    }
   }
 
   private setupEventHandlers() {
@@ -66,6 +118,7 @@ class WebRTCSignalingService {
           session.displayName = data.displayName;
           session.isInitiator = data.isInitiator;
           peerId = session.peerId;
+          this.peerIdToSocketId.set(peerId, socket.id);
           if (nameChanged) {
             console.log(`[WebRTC] Peer name updated: ${peerId} (${data.displayName})`);
           }
@@ -73,12 +126,10 @@ class WebRTCSignalingService {
           // New connection — reuse the client's preferred Peer ID and evict any stale dead session
           const preferred = data.preferredPeerId;
           if (preferred) {
-            for (const [sId, s] of Array.from(this.sessions.entries())) {
-              if (s.peerId === preferred && sId !== socket.id) {
-                console.log(`[WebRTC] Evicting stale session ${sId} for peer ${preferred}`);
-                this.sessions.delete(sId);
-                this.peerConnections.delete(sId);
-              }
+            const staleSocketId = this.peerIdToSocketId.get(preferred);
+            if (staleSocketId && staleSocketId !== socket.id) {
+              console.log(`[WebRTC] Evicting stale session ${staleSocketId} for preferred peer ${preferred}`);
+              this.removeSession(staleSocketId);
             }
             peerId = preferred;
           } else {
@@ -94,7 +145,9 @@ class WebRTCSignalingService {
           };
 
           this.sessions.set(socket.id, session);
+          this.peerIdToSocketId.set(peerId, socket.id);
           this.peerConnections.set(socket.id, new Set());
+
           // Notify any other active session that was previously paired with this peerId
           for (const [otherSocketId, otherSession] of Array.from(this.sessions.entries())) {
             if (otherSocketId !== socket.id) {
@@ -135,15 +188,8 @@ class WebRTCSignalingService {
           return;
         }
 
-        // Find the target peer by peerId
-        let targetSocketId: string | null = null;
-        const sessionsArray = Array.from(this.sessions.entries());
-        for (const [socketId, session] of sessionsArray) {
-          if (session.peerId === data.to) {
-            targetSocketId = socketId;
-            break;
-          }
-        }
+        // Fast O(1) target lookup index
+        const targetSocketId = this.peerIdToSocketId.get(data.to) || null;
 
         if (!targetSocketId) {
           console.warn(`[WebRTC] Target peer not found: ${data.to}`);
@@ -187,13 +233,8 @@ class WebRTCSignalingService {
         const fromSession = this.sessions.get(socket.id);
         if (!fromSession) return;
 
-        let targetSocketId: string | null = null;
-        for (const [sId, session] of this.sessions.entries()) {
-          if (session.peerId === data.to) {
-            targetSocketId = sId;
-            break;
-          }
-        }
+        // Fast O(1) target lookup index
+        const targetSocketId = this.peerIdToSocketId.get(data.to) || null;
 
         if (targetSocketId) {
           this.io.to(targetSocketId).emit("relay-file-data", {
@@ -219,18 +260,7 @@ class WebRTCSignalingService {
         const session = this.sessions.get(socket.id);
         if (session) {
           console.log(`[WebRTC] Peer disconnected: ${session.peerId}`);
-          this.sessions.delete(socket.id);
-          this.peerConnections.delete(socket.id);
-
-          // Notify connected peers
-          const connections = this.peerConnections.get(socket.id);
-          if (connections) {
-            connections.forEach((connectedSocketId) => {
-              this.io.to(connectedSocketId).emit("peer-disconnected", {
-                peerId: session.peerId,
-              });
-            });
-          }
+          this.removeSession(socket.id);
         }
       });
 
@@ -249,22 +279,15 @@ class WebRTCSignalingService {
   }
 
   public getPeerInfo(peerId: string): PeerSession | null {
-    const sessionsValues = Array.from(this.sessions.values());
-    for (const session of sessionsValues) {
-      if (session.peerId === peerId) {
-        return session;
-      }
+    const socketId = this.peerIdToSocketId.get(peerId);
+    if (socketId) {
+      return this.sessions.get(socketId) || null;
     }
     return null;
   }
 
   public getActivePeers(): PeerSession[] {
-    const peersArray: PeerSession[] = [];
-    const sessionsValues = Array.from(this.sessions.values());
-    sessionsValues.forEach((session) => {
-      peersArray.push(session);
-    });
-    return peersArray;
+    return Array.from(this.sessions.values());
   }
 }
 
