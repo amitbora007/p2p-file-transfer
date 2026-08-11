@@ -486,16 +486,19 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
     const registerPeer = () => {
       setIsRegistered(false);
+      const currentPeerId = peerIdRef.current || getOrCreateStablePeerId();
       const { displayName: curName, isInitiator: curInit } = optionsRef.current;
       socket.emit(
         "register-peer",
-        { displayName: curName, isInitiator: curInit, preferredPeerId: stablePeerId },
+        { displayName: curName, isInitiator: curInit, preferredPeerId: currentPeerId },
         (response: any) => {
           if (response?.success) {
-            // Server may return the preferred ID or a new one (if preferred was taken)
+            // Server returns confirmed peerId
             setPeerId(response.peerId);
             peerIdRef.current = response.peerId;
-            localStorage.setItem(PEER_ID_KEY, response.peerId);
+            try {
+              localStorage.setItem(PEER_ID_KEY, response.peerId);
+            } catch (e) {}
             if (response.lanIps && response.lanIps.length > 0) {
               setServerLanIp(response.lanIps[0]);
             }

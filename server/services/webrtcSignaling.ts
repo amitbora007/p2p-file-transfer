@@ -113,12 +113,18 @@ class WebRTCSignalingService {
         let peerId: string;
 
         if (session) {
-          // Existing session — update display name in-place
+          // Existing session — update display name and peerId if preferredPeerId changed
+          const oldPeerId = session.peerId;
+          if (data.preferredPeerId && data.preferredPeerId !== oldPeerId) {
+            console.log(`[WebRTC] Updating socket ${socket.id} Peer ID: ${oldPeerId} -> ${data.preferredPeerId}`);
+            this.peerIdToSocketId.delete(oldPeerId);
+            session.peerId = data.preferredPeerId;
+            this.peerIdToSocketId.set(data.preferredPeerId, socket.id);
+          }
           const nameChanged = session.displayName !== data.displayName;
           session.displayName = data.displayName;
           session.isInitiator = data.isInitiator;
           peerId = session.peerId;
-          this.peerIdToSocketId.set(peerId, socket.id);
           if (nameChanged) {
             console.log(`[WebRTC] Peer name updated: ${peerId} (${data.displayName})`);
           }
