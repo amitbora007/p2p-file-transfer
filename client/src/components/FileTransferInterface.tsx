@@ -78,12 +78,16 @@ export function FileTransferInterface({
     } catch (e) {}
   };
 
-  // Reset received state when disconnected
+  // Reset received state & clear session history when disconnected
   useEffect(() => {
     if (!connected) {
       setIsReceiving(false);
       setReceivedFileName("");
       receivedChunksRef.current.clear();
+      setHistory([]);
+      try {
+        sessionStorage.removeItem("p2p_transfer_history");
+      } catch (e) {}
     }
   }, [connected]);
 
