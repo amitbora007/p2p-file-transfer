@@ -270,7 +270,21 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
   const handleIncomingMessage = useCallback((message: any) => {
     if (!message) return;
-    if (message.type === "file-chunk") {
+    if (message.type === "file-start") {
+      console.log(`[WebRTC] Incoming file transfer starting: ${message.fileName}`);
+      receiveStartTimeRef.current = Date.now();
+      lastReceivedChunkIndexRef.current = -1;
+      setTransferProgress({
+        fileName: message.fileName,
+        progress: 0,
+        total: message.totalChunks,
+        fileSizeBytes: message.fileSize,
+        transferredBytes: 0,
+        speed: 0,
+        timeRemaining: 0,
+        direction: "receive",
+      });
+    } else if (message.type === "file-chunk") {
       lastReceivedChunkIndexRef.current = message.chunkIndex;
       if (onChunkRef.current) {
         onChunkRef.current(message);
@@ -803,6 +817,25 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       const totalChunks = Math.ceil(file.size / chunkSize);
       let sentChunks = 0;
       const startTime = Date.now();
+
+      // Send file-start notification to target peer so both devices lock controls immediately
+      sendDataToPeer({
+        type: "file-start",
+        fileName: file.name,
+        fileSize: file.size,
+        totalChunks,
+      });
+
+      setTransferProgress({
+        fileName: file.name,
+        progress: 0,
+        total: totalChunks,
+        fileSizeBytes: file.size,
+        transferredBytes: 0,
+        speed: 0,
+        timeRemaining: 0,
+        direction: "send",
+      });
 
       const reader = new FileReader();
 
