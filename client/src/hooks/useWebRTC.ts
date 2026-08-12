@@ -333,6 +333,17 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       const resumeFrom = typeof message.lastReceivedChunkIndex === "number" ? message.lastReceivedChunkIndex + 1 : 0;
       console.log(`[WebRTC Auto-Resume] Peer requested resume from chunk #${resumeFrom}`);
       resumeFromChunkRef.current = resumeFrom;
+
+      // Automatically unpause sender if transfer was paused due to screen lock or temporary drop
+      if (isPausedRef.current) {
+        console.log("[WebRTC Auto-Resume] Unpausing sender on auto-resume request");
+        if (pausedStartTimeRef.current !== null) {
+          totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
+          pausedStartTimeRef.current = null;
+        }
+        isPausedRef.current = false;
+        setIsPaused(false);
+      }
     } else if (message.type === "file-complete") {
       receiveStartTimeRef.current = null;
       lastReceivedChunkIndexRef.current = -1;
@@ -695,7 +706,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     });
 
     socket.on("peer-disconnected", (data: any) => {
-      console.log(`[WebRTC] Peer disconnected: ${data?.peerId}`);
+      console.log(`[WebRTC] Peer disconnected event (explicit: ${!!data?.explicit}): ${data?.peerId}`);
       if (pcRef.current) {
         try {
           pcRef.current.close();
@@ -703,28 +714,38 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         pcRef.current = null;
       }
       dataChannelRef.current = null;
+
+      // If disconnection was implicit (screen lock/temporary drop), pause active transfer instead of tearing down pairing!
+      if (!data?.explicit) {
+        console.log("[WebRTC] Implicit socket drop detected - keeping session paired and pausing transfer until auto-reconnect");
+        if (!isPausedRef.current) {
+          pausedStartTimeRef.current = Date.now();
+          isPausedRef.current = true;
+          setIsPaused(true);
+        }
+        return;
+      }
+
+      // Explicit Disconnect: User clicked Disconnect button — tear down session & generate fresh Peer ID
       remoteIdRef.current = "";
       setConnected(false);
       setRemotePeerInfo(null);
       setTransferProgress(null);
       setError("");
 
-      // If the disconnection was explicit, generate a brand new Peer ID for this device too!
-      if (data?.explicit) {
-        const newPeerId = Array.from(crypto.getRandomValues(new Uint8Array(6)))
-          .map((b) => b.toString(16).padStart(2, "0").toUpperCase())
-          .join("");
-        try {
-          localStorage.setItem(PEER_ID_KEY, newPeerId);
-        } catch (e) {}
-        setPeerId(newPeerId);
-        peerIdRef.current = newPeerId;
-        const { displayName: curName, isInitiator: curInit } = optionsRef.current;
-        socket.emit("register-peer", { displayName: curName, isInitiator: curInit, preferredPeerId: newPeerId });
+      const newPeerId = Array.from(crypto.getRandomValues(new Uint8Array(6)))
+        .map((b) => b.toString(16).padStart(2, "0").toUpperCase())
+        .join("");
+      try {
+        localStorage.setItem(PEER_ID_KEY, newPeerId);
+      } catch (e) {}
+      setPeerId(newPeerId);
+      peerIdRef.current = newPeerId;
+      const { displayName: curName, isInitiator: curInit } = optionsRef.current;
+      socket.emit("register-peer", { displayName: curName, isInitiator: curInit, preferredPeerId: newPeerId });
 
-        if (typeof window !== "undefined" && window.history.replaceState) {
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
+      if (typeof window !== "undefined" && window.history.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
     });
 
