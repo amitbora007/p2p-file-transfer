@@ -15,6 +15,28 @@ export function QRCodeGenerator({ peerId, displayName, onDisplayNameChange }: QR
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [copiedId, setCopiedId] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [localName, setLocalName] = useState(displayName);
+
+  useEffect(() => {
+    setLocalName(displayName);
+  }, [displayName]);
+
+  // 800ms Debounce timer to notify parent only when user stops typing
+  useEffect(() => {
+    if (localName === displayName) return;
+    const timer = setTimeout(() => {
+      if (localName.trim()) {
+        onDisplayNameChange(localName.trim());
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [localName, displayName, onDisplayNameChange]);
+
+  const handleCommitName = () => {
+    if (localName.trim() && localName.trim() !== displayName) {
+      onDisplayNameChange(localName.trim());
+    }
+  };
 
   const getOrigin = () => {
     if (typeof window === "undefined") return "";
@@ -89,8 +111,12 @@ export function QRCodeGenerator({ peerId, displayName, onDisplayNameChange }: QR
           <div className="flex items-center gap-2.5 bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 focus-within:border-indigo-500/60 transition-all">
             <input
               type="text"
-              value={displayName}
-              onChange={(e) => onDisplayNameChange(e.target.value)}
+              value={localName}
+              onChange={(e) => setLocalName(e.target.value)}
+              onBlur={handleCommitName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCommitName();
+              }}
               placeholder="Enter device name"
               className="flex-1 bg-transparent text-xs font-semibold text-slate-100 placeholder:text-slate-500 outline-none"
             />

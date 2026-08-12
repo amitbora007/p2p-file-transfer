@@ -78,6 +78,15 @@ export function FileTransferInterface({
     } catch (e) {}
   };
 
+  // Reset received state when disconnected
+  useEffect(() => {
+    if (!connected) {
+      setIsReceiving(false);
+      setReceivedFileName("");
+      setReceivedChunks(new Map());
+    }
+  }, [connected]);
+
   // Track previous transferProgress to log completed/failed transfers
   const prevProgressRef = useRef<TransferProgress | null>(null);
 
@@ -85,12 +94,19 @@ export function FileTransferInterface({
     // If transfer was active and suddenly cleared without error, log completion for sender
     if (prevProgressRef.current && !transferProgress && !error) {
       const prev = prevProgressRef.current;
-      if (prev.direction === "send" && prev.progress >= prev.total - 1) {
+      if (prev.direction === "send" && prev.progress >= prev.total) {
         addHistoryRecord({
           fileName: prev.fileName,
           fileSize: prev.fileSizeBytes,
           direction: "send",
           status: "completed",
+        });
+      } else if (!connected) {
+        addHistoryRecord({
+          fileName: prev.fileName,
+          fileSize: prev.fileSizeBytes,
+          direction: prev.direction || "send",
+          status: "cancelled",
         });
       }
     }
@@ -107,7 +123,7 @@ export function FileTransferInterface({
     }
 
     prevProgressRef.current = transferProgress;
-  }, [transferProgress, error, addHistoryRecord]);
+  }, [transferProgress, error, connected, addHistoryRecord]);
 
   useEffect(() => {
     if (connected && !isReceiving) {

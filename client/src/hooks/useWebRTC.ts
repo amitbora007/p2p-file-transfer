@@ -201,6 +201,12 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
           startSilentAudio();
         }
 
+        // Reset stalled/closed WebRTC DataChannel so transfers transparently fall back to WebSocket relay
+        if (dataChannelRef.current && dataChannelRef.current.readyState !== "open") {
+          console.log(`[Screen Unlock] Resetting stalled DataChannel state (${dataChannelRef.current.readyState})`);
+          dataChannelRef.current = null;
+        }
+
         const socket = socketRef.current;
         if (socket) {
           if (!socket.connected) {
@@ -221,7 +227,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
           );
         }
 
-        // If downloading/uploading when screen unlocked, send resume request
+        // If receiver was in the middle of a transfer when screen unlocked, send resume request
         if (lastReceivedChunkIndexRef.current >= 0 && remoteIdRef.current) {
           console.log(`[Screen Unlock Resume] Triggering auto-resume from chunk #${lastReceivedChunkIndexRef.current + 1}`);
           sendDataToPeer({
