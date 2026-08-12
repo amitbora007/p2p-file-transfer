@@ -247,80 +247,90 @@ export function FileTransferInterface({
               </div>
             </CardHeader>
             <CardContent className="p-4 sm:p-5 space-y-4">
-              <div
-                onDragOver={(e) => { if (connected) handleDragOver(e); }}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => { if (connected) handleDrop(e); }}
-                className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
-                  !connected
-                    ? "opacity-50 cursor-not-allowed border-slate-800 bg-slate-950/40"
-                    : isDragging
-                    ? "border-indigo-500 bg-indigo-950/40 shadow-lg shadow-indigo-500/10"
-                    : "border-slate-800 hover:border-indigo-500/50 bg-slate-950/60 hover:bg-slate-950/80 cursor-pointer"
-                }`}
-                onClick={() => {
-                  if (connected) fileInputRef.current?.click();
-                }}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  disabled={!connected}
-                />
-                <div className="flex flex-col items-center gap-3">
-                  <div className="p-3 bg-indigo-950/80 rounded-2xl text-indigo-400 border border-indigo-800/50 shadow-inner">
-                    <Upload className="w-6 h-6" />
-                  </div>
-                  <p className="text-sm font-medium text-slate-300">
-                    {connected
-                      ? "Click or drag & drop a file here to select"
-                      : "Connect to a peer to select and stream files"}
-                  </p>
-                  <Button
-                    variant="outline"
-                    type="button"
-                    disabled={!connected}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (connected) fileInputRef.current?.click();
-                    }}
-                    className="h-10 px-5 rounded-xl border border-slate-800 bg-slate-900 text-sm font-medium hover:bg-slate-800 text-slate-200 transition-all shadow-sm"
-                  >
-                    Choose File
-                  </Button>
-                </div>
+              {(() => {
+                const isTransferring = transferProgress !== null;
 
-                {selectedFile && (
-                  <div className="mt-4 p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 text-left shadow-sm">
-                    <p className="text-sm font-semibold text-slate-100 truncate">{selectedFile.name}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">{formatBytes(selectedFile.size)}</p>
-                  </div>
-                )}
-              </div>
+                return (
+                  <>
+                    <div
+                      onDragOver={(e) => { if (connected && !isTransferring) handleDragOver(e); }}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => { if (connected && !isTransferring) handleDrop(e); }}
+                      className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                        !connected || isTransferring
+                          ? "opacity-50 cursor-not-allowed border-slate-800 bg-slate-950/40"
+                          : isDragging
+                          ? "border-indigo-500 bg-indigo-950/40 shadow-lg shadow-indigo-500/10"
+                          : "border-slate-800 hover:border-indigo-500/50 bg-slate-950/60 hover:bg-slate-950/80 cursor-pointer"
+                      }`}
+                      onClick={() => {
+                        if (connected && !isTransferring) fileInputRef.current?.click();
+                      }}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                        disabled={!connected || isTransferring}
+                      />
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="p-3 bg-indigo-950/80 rounded-2xl text-indigo-400 border border-indigo-800/50 shadow-inner">
+                          <Upload className="w-6 h-6" />
+                        </div>
+                        <p className="text-sm font-medium text-slate-300">
+                          {isTransferring
+                            ? "Transfer in progress... Please wait for current transfer to complete"
+                            : connected
+                            ? "Click or drag & drop a file here to select"
+                            : "Connect to a peer to select and stream files"}
+                        </p>
+                        <Button
+                          variant="outline"
+                          type="button"
+                          disabled={!connected || isTransferring}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (connected && !isTransferring) fileInputRef.current?.click();
+                          }}
+                          className="h-10 px-5 rounded-xl border border-slate-800 bg-slate-900 text-sm font-medium hover:bg-slate-800 text-slate-200 transition-all shadow-sm disabled:opacity-40"
+                        >
+                          Choose File
+                        </Button>
+                      </div>
 
-              {selectedFile && (
-                <Button
-                  onClick={handleSendFile}
-                  disabled={!connected || transferProgress !== null}
-                  className="h-11 w-full rounded-xl font-semibold text-sm bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white shadow-lg shadow-indigo-500/25 transition-all active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-2 border-0"
-                >
-                  {transferProgress ? (
-                    <>
-                      <Loader className="w-4 h-4 mr-2 animate-spin" />
-                      {isPaused ? "Paused" : "Sending..."}
-                    </>
-                  ) : !connected ? (
-                    "Connect to Peer to Send File"
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Send File
-                    </>
-                  )}
-                </Button>
-              )}
+                      {selectedFile && (
+                        <div className="mt-4 p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 text-left shadow-sm">
+                          <p className="text-sm font-semibold text-slate-100 truncate">{selectedFile.name}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">{formatBytes(selectedFile.size)}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {selectedFile && (
+                      <Button
+                        onClick={handleSendFile}
+                        disabled={!connected || isTransferring}
+                        className="h-11 w-full rounded-xl font-semibold text-sm bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white shadow-lg shadow-indigo-500/25 transition-all active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-2 border-0"
+                      >
+                        {isTransferring ? (
+                          <>
+                            <Loader className="w-4 h-4 mr-2 animate-spin" />
+                            {isPaused ? "Transfer Paused" : "Transfering..."}
+                          </>
+                        ) : !connected ? (
+                          "Connect to Peer to Send File"
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4 mr-2" />
+                            Send File
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </>
+                );
+              })()}
 
               {transferProgress && transferProgress.direction === "send" && (
                 <TransferProgressBar
