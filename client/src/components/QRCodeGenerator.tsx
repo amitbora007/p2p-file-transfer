@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { Copy, Download } from "lucide-react";
+import { Copy, Download, Check, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { HelpTooltip } from "@/components/HelpTooltip";
@@ -12,6 +12,8 @@ interface QRCodeGeneratorProps {
 
 export function QRCodeGenerator({ peerId, displayName }: QRCodeGeneratorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [copiedId, setCopiedId] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const getOrigin = () => {
     if (typeof window === "undefined") return "";
@@ -27,24 +29,28 @@ export function QRCodeGenerator({ peerId, displayName }: QRCodeGeneratorProps) {
   useEffect(() => {
     if (!peerId || !canvasRef.current) return;
 
-    // Use full connection URL so native camera apps can open it directly
+    // Compact 180px size optimized for mobile viewports
     QRCode.toCanvas(canvasRef.current, connectUrl || peerId, {
-      width: 300,
-      margin: 2,
+      width: 180,
+      margin: 1,
       color: {
-        dark: "#000000",
-        light: "#FFFFFF",
+        dark: "#0f172a",
+        light: "#ffffff",
       },
     });
   }, [peerId, displayName, connectUrl]);
 
   const handleCopyPeerId = () => {
     navigator.clipboard.writeText(peerId);
+    setCopiedId(true);
+    setTimeout(() => setCopiedId(false), 2000);
   };
 
   const handleCopyUrl = () => {
     if (connectUrl) {
       navigator.clipboard.writeText(connectUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
     }
   };
 
@@ -52,58 +58,65 @@ export function QRCodeGenerator({ peerId, displayName }: QRCodeGeneratorProps) {
     if (canvasRef.current) {
       const link = document.createElement("a");
       link.href = canvasRef.current.toDataURL("image/png");
-      link.download = `qr-code-${peerId}.png`;
+      link.download = `p2p-qr-${peerId}.png`;
       link.click();
     }
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
+    <Card className="w-full border border-slate-800/80 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/40 rounded-2xl overflow-hidden">
+      <CardHeader className="pb-3 border-b border-slate-800/60">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Your QR Code</CardTitle>
-            <CardDescription>Share this QR code or link to connect</CardDescription>
+            <CardTitle className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+              Your Device Identity
+            </CardTitle>
+            <CardDescription className="text-xs text-slate-400">
+              Share this QR code or link for instant P2P pairing
+            </CardDescription>
           </div>
-          <HelpTooltip content="Scan this QR code with a camera or click Copy Link to share. Connects directly across any network (5G, 4G, Wi-Fi, or Internet)." />
+          <HelpTooltip content="Scan this QR code with any camera or tap Copy Link to pair instantly. Works across 5G, 4G, Wi-Fi, or Internet." />
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col items-center gap-6">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-sm flex justify-center max-w-full">
-          <canvas ref={canvasRef} className="max-w-full h-auto rounded-lg" />
-        </div>
-
-        <div className="w-full space-y-1.5 text-center">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Your Peer ID</p>
-          <div className="inline-flex items-center justify-center bg-blue-50/80 border border-blue-200/60 rounded-xl px-4 py-1.5">
-            <span className="text-lg font-mono font-bold text-blue-700 break-all">{peerId || "Generating..."}</span>
+      <CardContent className="pt-5 space-y-4">
+        <div className="flex flex-col items-center justify-center space-y-3">
+          <div className="p-2.5 bg-white rounded-xl shadow-lg border border-slate-700/50 w-44 h-44 flex items-center justify-center transition-transform hover:scale-[1.02]">
+            <canvas ref={canvasRef} className="w-full h-full rounded-md" />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-medium">Peer ID:</span>
+            <span className="font-mono text-sm font-bold text-indigo-400 bg-indigo-950/60 px-3 py-0.5 rounded-md border border-indigo-800/50">
+              {peerId || "GENERATING..."}
+            </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 w-full">
+        <div className="grid grid-cols-3 gap-2 pt-1">
           <Button
-            variant="outline"
             onClick={handleCopyPeerId}
-            className="h-10 w-full text-sm font-medium rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all flex items-center justify-center gap-2 shadow-2xs active:scale-[0.98]"
-          >
-            <Copy className="w-4 h-4 text-slate-500" />
-            Copy ID
-          </Button>
-          <Button
             variant="outline"
+            className="h-10 text-xs font-medium border border-slate-800 bg-slate-900/80 hover:bg-slate-800/80 text-slate-200 rounded-xl transition-all flex items-center justify-center gap-1.5"
+          >
+            {copiedId ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
+            {copiedId ? "Copied" : "Copy ID"}
+          </Button>
+
+          <Button
             onClick={handleCopyUrl}
-            className="h-10 w-full text-sm font-medium rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all flex items-center justify-center gap-2 shadow-2xs active:scale-[0.98]"
-          >
-            <Copy className="w-4 h-4 text-slate-500" />
-            Copy Link
-          </Button>
-          <Button
             variant="outline"
-            onClick={handleDownload}
-            className="h-10 w-full text-sm font-medium rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-all flex items-center justify-center gap-2 shadow-2xs active:scale-[0.98]"
+            className="h-10 text-xs font-medium border border-slate-800 bg-slate-900/80 hover:bg-slate-800/80 text-slate-200 rounded-xl transition-all flex items-center justify-center gap-1.5"
           >
-            <Download className="w-4 h-4 text-slate-500" />
-            Download QR
+            {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link className="w-3.5 h-3.5 text-slate-400" />}
+            {copiedLink ? "Copied" : "Copy Link"}
+          </Button>
+
+          <Button
+            onClick={handleDownload}
+            variant="outline"
+            className="h-10 text-xs font-medium border border-slate-800 bg-slate-900/80 hover:bg-slate-800/80 text-slate-200 rounded-xl transition-all flex items-center justify-center gap-1.5"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-400" />
+            Download
           </Button>
         </div>
       </CardContent>

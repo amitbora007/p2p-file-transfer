@@ -220,48 +220,52 @@ export function FileTransferInterface({
       )}
 
       <Tabs defaultValue="transfer" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-4 h-11 p-1 bg-slate-100/80 rounded-xl border border-slate-200/60">
-          <TabsTrigger value="transfer" className="flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-2xs">
-            <Upload className="w-4 h-4 text-blue-600" />
-            File Transfer
+        <TabsList className="grid w-full grid-cols-2 p-1 h-12 bg-slate-950/80 border border-slate-800/80 rounded-xl">
+          <TabsTrigger
+            value="transfer"
+            className="rounded-lg h-10 text-xs sm:text-sm font-semibold transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/25 text-slate-400"
+          >
+            Transfer Files
           </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-2xs">
-            <History className="w-4 h-4 text-indigo-600" />
+          <TabsTrigger
+            value="history"
+            className="rounded-lg h-10 text-xs sm:text-sm font-semibold transition-all data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-indigo-500/25 text-slate-400 flex items-center justify-center gap-1.5"
+          >
             Session History
             {history.length > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs px-2 py-0.5 rounded-full bg-slate-200/70 font-semibold">
+              <Badge variant="secondary" className="ml-1 text-xs px-2 py-0.5 rounded-full bg-slate-800 text-indigo-300 font-semibold border border-indigo-500/30">
                 {history.length}
               </Badge>
             )}
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="transfer" className="space-y-4">
+        <TabsContent value="transfer" className="space-y-4 mt-4">
           {/* Send File Section */}
-          <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs hover:shadow-md transition-all duration-200">
-            <CardHeader className="pb-3">
+          <Card className="rounded-2xl border border-slate-800/80 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
+            <CardHeader className="pb-3 border-b border-slate-800/60">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <Upload className="w-5 h-5 text-blue-600" />
+                  <CardTitle className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+                    <Upload className="w-5 h-5 text-indigo-400" />
                     Send File
                   </CardTitle>
-                  <CardDescription className="text-xs text-slate-500">Select a file to share with the connected peer</CardDescription>
+                  <CardDescription className="text-xs text-slate-400">Stream files directly to the paired device</CardDescription>
                 </div>
-                <HelpTooltip content="Choose a file from your device and send it directly to the connected peer. The transfer happens peer-to-peer without using a server." />
+                <HelpTooltip content="Choose a file from your device and stream it directly to the paired peer. Transferred via end-to-end WebRTC transport." />
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="pt-5 space-y-4">
               <div
                 onDragOver={(e) => { if (connected) handleDragOver(e); }}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => { if (connected) handleDrop(e); }}
-                className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${
+                className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
                   !connected
-                    ? "opacity-60 cursor-not-allowed border-slate-200 bg-slate-50/60"
+                    ? "opacity-50 cursor-not-allowed border-slate-800 bg-slate-950/40"
                     : isDragging
-                    ? "border-blue-500 bg-blue-50/80 shadow-xs"
-                    : "border-slate-300 hover:border-slate-400 bg-slate-50/40 hover:bg-slate-50 cursor-pointer"
+                    ? "border-indigo-500 bg-indigo-950/40 shadow-lg shadow-indigo-500/10"
+                    : "border-slate-800 hover:border-indigo-500/50 bg-slate-950/60 hover:bg-slate-950/80 cursor-pointer"
                 }`}
                 onClick={() => {
                   if (connected) fileInputRef.current?.click();
@@ -275,13 +279,13 @@ export function FileTransferInterface({
                   disabled={!connected}
                 />
                 <div className="flex flex-col items-center gap-3">
-                  <div className="p-3 bg-blue-50 rounded-2xl text-blue-600 border border-blue-100">
+                  <div className="p-3 bg-indigo-950/80 rounded-2xl text-indigo-400 border border-indigo-800/50 shadow-inner">
                     <Upload className="w-6 h-6" />
                   </div>
-                  <p className="text-sm font-medium text-slate-700">
+                  <p className="text-sm font-medium text-slate-300">
                     {connected
                       ? "Click or drag & drop a file here to select"
-                      : "Connect to a peer to select and send files"}
+                      : "Connect to a peer to select and stream files"}
                   </p>
                   <Button
                     variant="outline"
@@ -291,16 +295,16 @@ export function FileTransferInterface({
                       e.stopPropagation();
                       if (connected) fileInputRef.current?.click();
                     }}
-                    className="h-10 px-5 rounded-xl border border-slate-200 text-sm font-medium hover:bg-slate-100 transition-all shadow-2xs"
+                    className="h-10 px-5 rounded-xl border border-slate-800 bg-slate-900 text-sm font-medium hover:bg-slate-800 text-slate-200 transition-all shadow-sm"
                   >
                     Choose File
                   </Button>
                 </div>
 
                 {selectedFile && (
-                  <div className="mt-4 p-3.5 bg-white rounded-xl border border-slate-200 text-left shadow-2xs">
-                    <p className="text-sm font-semibold text-slate-900 truncate">{selectedFile.name}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{formatBytes(selectedFile.size)}</p>
+                  <div className="mt-4 p-3.5 bg-slate-900/90 rounded-xl border border-slate-800 text-left shadow-sm">
+                    <p className="text-sm font-semibold text-slate-100 truncate">{selectedFile.name}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{formatBytes(selectedFile.size)}</p>
                   </div>
                 )}
               </div>
@@ -309,7 +313,7 @@ export function FileTransferInterface({
                 <Button
                   onClick={handleSendFile}
                   disabled={!connected || transferProgress !== null}
-                  className="h-11 w-full rounded-xl font-medium text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="h-11 w-full rounded-xl font-semibold text-sm bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white shadow-lg shadow-indigo-500/25 transition-all active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-2 border-0"
                 >
                   {transferProgress ? (
                     <>
@@ -354,27 +358,27 @@ export function FileTransferInterface({
 
               {(!transferProgress || transferProgress.direction !== "send") && !selectedFile && (
                 <div className="text-center py-2">
-                  <p className="text-sm text-gray-500">No file selected</p>
+                  <p className="text-xs text-slate-500">No file selected for streaming</p>
                 </div>
               )}
             </CardContent>
           </Card>
 
           {/* Receive File Section */}
-          <Card>
-            <CardHeader>
+          <Card className="rounded-2xl border border-slate-800/80 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
+            <CardHeader className="pb-3 border-b border-slate-800/60">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Download className="w-5 h-5" />
+                  <CardTitle className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+                    <Download className="w-5 h-5 text-indigo-400" />
                     Receive File
                   </CardTitle>
-                  <CardDescription>Waiting to receive files from the connected peer</CardDescription>
+                  <CardDescription className="text-xs text-slate-400">Incoming transfers automatically download to your browser</CardDescription>
                 </div>
-                <HelpTooltip content="Files sent by the connected peer will automatically download to your device. No action needed—just wait for incoming transfers." />
+                <HelpTooltip content="Files sent by the connected peer will automatically stream and download to your device." />
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-5">
               {transferProgress && transferProgress.direction === "receive" ? (
                 <div className="space-y-3">
                   <TransferProgressBar
@@ -398,64 +402,65 @@ export function FileTransferInterface({
                 </div>
               ) : receivedFileName ? (
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  <div className="flex items-center gap-2.5 p-3.5 bg-emerald-950/30 border border-emerald-500/30 rounded-xl">
+                    <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
                     <div>
-                      <p className="font-medium text-green-900">{receivedFileName}</p>
-                      <p className="text-sm text-green-700">File received and downloaded</p>
+                      <p className="font-semibold text-sm text-emerald-200">{receivedFileName}</p>
+                      <p className="text-xs text-emerald-400">File received and saved to downloads</p>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-6">
-                  <Download className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-600">Waiting for incoming files...</p>
+                <div className="text-center py-8 space-y-2">
+                  <Download className="w-10 h-10 text-slate-600 mx-auto" />
+                  <p className="text-sm font-medium text-slate-400">Waiting for incoming transfers...</p>
+                  <p className="text-xs text-slate-600">Files sent by the paired device will appear here automatically</p>
                 </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="history">
-          <Card>
-            <CardHeader>
+        <TabsContent value="history" className="mt-4">
+          <Card className="rounded-2xl border border-slate-800/80 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
+            <CardHeader className="pb-3 border-b border-slate-800/60">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <History className="w-5 h-5" />
+                  <CardTitle className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+                    <History className="w-5 h-5 text-indigo-400" />
                     Session History
                   </CardTitle>
-                  <CardDescription>File transmissions performed during this session</CardDescription>
+                  <CardDescription className="text-xs text-slate-400">File transmission log for active pairing</CardDescription>
                 </div>
                 {history.length > 0 && (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={clearHistory}
-                    className="text-gray-600 hover:text-red-600 hover:bg-red-50 border-gray-200 flex items-center gap-1"
+                    className="text-xs font-medium text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 border-slate-800 flex items-center gap-1.5"
                   >
-                    <Trash2 className="w-4 h-4 text-gray-500 hover:text-red-600" />
+                    <Trash2 className="w-3.5 h-3.5" />
                     Clear History
                   </Button>
                 )}
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-5">
               {history.length === 0 ? (
-                <div className="text-center py-8">
-                  <History className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                  <p className="text-gray-600 font-medium">No transfer history yet</p>
-                  <p className="text-sm text-gray-400 mt-1">Transferred files in this session will appear here with their status.</p>
+                <div className="text-center py-10 space-y-2">
+                  <History className="w-10 h-10 text-slate-600 mx-auto" />
+                  <p className="text-slate-300 font-semibold text-sm">No transfer history yet</p>
+                  <p className="text-xs text-slate-500">Transferred files in this session will be recorded here with status details.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {history.map((item) => (
                     <div
                       key={item.id}
-                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 hover:bg-slate-100/60 transition-all"
+                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-3 p-3.5 bg-slate-950/60 rounded-xl border border-slate-800/80 hover:bg-slate-950/90 transition-all"
                     >
                       <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto">
-                        <div className={`p-2 rounded-xl shrink-0 ${item.direction === "send" ? "bg-blue-100/80 text-blue-600" : "bg-purple-100/80 text-purple-600"}`}>
+                        <div className={`p-2 rounded-xl shrink-0 ${item.direction === "send" ? "bg-indigo-950/80 text-indigo-400 border border-indigo-800/50" : "bg-purple-950/80 text-purple-400 border border-purple-800/50"}`}>
                           {item.direction === "send" ? (
                             <ArrowUpRight className="w-4 h-4" />
                           ) : (
@@ -463,8 +468,8 @@ export function FileTransferInterface({
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-sm text-slate-900 truncate">{item.fileName}</p>
-                          <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                          <p className="font-semibold text-sm text-slate-100 truncate">{item.fileName}</p>
+                          <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
                             <span>{formatBytes(item.fileSize)}</span>
                             <span>•</span>
                             <span>{item.timestamp}</span>
@@ -472,33 +477,33 @@ export function FileTransferInterface({
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto justify-end border-t sm:border-t-0 border-slate-200/60 pt-2 sm:pt-0">
+                      <div className="flex flex-wrap items-center gap-2 shrink-0 w-full sm:w-auto justify-end border-t sm:border-t-0 border-slate-800/60 pt-2 sm:pt-0">
                         <Badge
                           variant="outline"
                           className={
                             item.direction === "send"
-                              ? "bg-blue-50 text-blue-700 border-blue-200/80"
-                              : "bg-purple-50 text-purple-700 border-purple-200/80"
+                              ? "bg-indigo-950/60 text-indigo-300 border-indigo-800/50"
+                              : "bg-purple-950/60 text-purple-300 border-purple-800/50"
                           }
                         >
                           {item.direction === "send" ? "Sent" : "Received"}
                         </Badge>
 
                         {item.status === "completed" && (
-                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <Badge variant="outline" className="bg-emerald-950/60 text-emerald-300 border-emerald-800/50 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
                             Completed
                           </Badge>
                         )}
                         {item.status === "failed" && (
-                          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 flex items-center gap-1">
-                            <XCircle className="w-3 h-3 text-red-600" />
+                          <Badge variant="outline" className="bg-rose-950/60 text-rose-300 border-rose-800/50 flex items-center gap-1">
+                            <XCircle className="w-3 h-3 text-rose-400" />
                             Failed
                           </Badge>
                         )}
                         {item.status === "cancelled" && (
-                          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3 text-amber-600" />
+                          <Badge variant="outline" className="bg-amber-950/60 text-amber-300 border-amber-800/50 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3 text-amber-400" />
                             Cancelled
                           </Badge>
                         )}

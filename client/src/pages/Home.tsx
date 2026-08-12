@@ -79,27 +79,27 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/60 font-sans text-slate-900 antialiased selection:bg-blue-500 selection:text-white">
+    <div className="min-h-screen bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-950/40 via-slate-950 to-slate-950 text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white">
       {/* Sticky Top Header */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200/80 shadow-2xs">
+      <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl shadow-black/50">
         <div className="max-w-6xl mx-auto px-4 py-3.5 sm:py-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 text-white p-2.5 rounded-xl shadow-md shadow-blue-500/20 flex items-center justify-center">
+              <div className="bg-gradient-to-tr from-indigo-600 via-purple-600 to-blue-600 text-white p-2.5 rounded-xl shadow-lg shadow-indigo-500/25 flex items-center justify-center">
                 <Share2 className="w-5 h-5" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-950 bg-clip-text text-transparent tracking-tight">
-                  P2P File Transfer
+                <h1 className="text-xl sm:text-2xl font-black bg-gradient-to-r from-slate-100 via-slate-200 to-indigo-300 bg-clip-text text-transparent tracking-tight">
+                  P2P Secure Transfer
                 </h1>
-                <p className="text-xs text-slate-500 font-medium">Direct & Encrypted Cross-Network Sharing</p>
+                <p className="text-xs text-slate-400 font-medium">Direct Encrypted WebRTC Transport • Zero Server Storage</p>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
               <div className="flex items-center gap-2.5">
                 {connected ? (
-                  <div className="h-8 px-3 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-300 text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs">
+                  <div className="h-8 px-3 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-semibold inline-flex items-center gap-1.5 shadow-inner">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -107,8 +107,8 @@ export default function Home() {
                     Connected
                   </div>
                 ) : (
-                  <div className="h-8 px-3 rounded-full bg-slate-100 text-slate-600 border border-slate-200 text-xs font-medium inline-flex items-center gap-1.5">
-                    <WifiOff className="w-3.5 h-3.5 text-slate-400" />
+                  <div className="h-8 px-3 rounded-full bg-slate-900/90 text-slate-400 border border-slate-800 text-xs font-medium inline-flex items-center gap-1.5">
+                    <WifiOff className="w-3.5 h-3.5 text-slate-500" />
                     Disconnected
                   </div>
                 )}
@@ -119,9 +119,9 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={handleDisconnect}
-                  className="h-8 px-3 rounded-full bg-red-50 hover:bg-red-100 active:scale-[0.98] text-red-600 font-semibold text-xs border border-red-500 shadow-2xs transition-all duration-150 inline-flex items-center justify-center gap-1.5 cursor-pointer outline-none"
+                  className="h-8 px-3 rounded-full bg-rose-500/10 hover:bg-rose-500/20 active:scale-[0.98] text-rose-400 font-semibold text-xs border border-rose-500/40 shadow-inner transition-all duration-150 inline-flex items-center justify-center gap-1.5 cursor-pointer outline-none"
                 >
-                  <LogOut className="w-3.5 h-3.5 text-red-600" />
+                  <LogOut className="w-3.5 h-3.5 text-rose-400" />
                   Disconnect
                 </button>
               )}
@@ -129,8 +129,8 @@ export default function Home() {
               <HelpTooltip
                 content={
                   connected
-                    ? "You are connected to a peer. You can now send or receive files."
-                    : "Not connected to a peer yet. Scan a QR code or enter a Peer ID to connect."
+                    ? "You are paired in an active session. Ready to stream files securely."
+                    : "Not connected to a peer. Scan QR code or enter Peer ID to establish a session."
                 }
               />
             </div>
@@ -141,9 +141,9 @@ export default function Home() {
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
         {error && (
-          <Alert variant="destructive" className="mb-6 rounded-2xl border-red-200 bg-red-50 text-red-900">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="font-medium text-sm">{error}</AlertDescription>
+          <Alert variant="destructive" className="mb-6 rounded-2xl border-rose-900/50 bg-rose-950/40 text-rose-200">
+            <AlertCircle className="h-4 w-4 text-rose-400" />
+            <AlertDescription className="font-medium text-sm text-rose-200">{error}</AlertDescription>
           </Alert>
         )}
 
@@ -154,12 +154,12 @@ export default function Home() {
 
             {/* Connect Card (Shown when Disconnected) */}
             {!connected && (
-              <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs hover:shadow-md transition-all duration-200">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-lg font-bold text-slate-900">Connect to Remote Device</CardTitle>
-                  <CardDescription className="text-xs text-slate-500">Scan a QR code or enter the remote Peer ID manually</CardDescription>
+              <Card className="rounded-2xl border border-slate-800/80 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
+                <CardHeader className="pb-3 border-b border-slate-800/60">
+                  <CardTitle className="text-base sm:text-lg font-bold text-slate-100">Connect to Remote Device</CardTitle>
+                  <CardDescription className="text-xs text-slate-400">Scan QR code or enter peer ID manually</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="pt-5 space-y-4">
                   <form onSubmit={handleManualConnect} className="flex flex-col sm:flex-row gap-2.5 w-full">
                     <input
                       type="text"
@@ -168,27 +168,27 @@ export default function Home() {
                       autoCapitalize="characters"
                       autoCorrect="off"
                       spellCheck="false"
-                      placeholder="Enter Peer ID (e.g., 3F9A12)"
-                      className="uppercase w-full sm:flex-1 h-11 px-4 font-mono text-sm font-semibold tracking-wider rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                      placeholder="ENTER PEER ID (E.G. 3F9A12)"
+                      className="uppercase w-full sm:flex-1 h-11 px-4 font-mono text-sm font-semibold tracking-wider rounded-xl border border-slate-800 bg-slate-950/70 text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all outline-none"
                     />
                     <Button
                       type="submit"
                       disabled={!manualPeerInput.trim()}
-                      className="w-full sm:w-auto h-11 px-6 rounded-xl font-medium text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 shrink-0"
+                      className="w-full sm:w-auto h-11 px-6 rounded-xl font-semibold text-sm bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white shadow-lg shadow-indigo-500/25 transition-all active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 border-0"
                     >
                       Connect
                       <ArrowRight className="w-4 h-4" />
                     </Button>
                   </form>
-                  <div className="relative flex items-center justify-center border-t border-slate-200/80 pt-4">
-                    <span className="bg-white px-3 text-xs font-semibold text-slate-400 absolute -top-3">OR</span>
+                  <div className="relative flex items-center justify-center border-t border-slate-800/80 pt-4">
+                    <span className="bg-slate-900 px-3 text-xs font-semibold text-slate-500 absolute -top-3">OR</span>
                   </div>
                   <Button
                     onClick={() => setShowScanner(true)}
                     variant="outline"
-                    className="h-11 w-full rounded-xl font-medium text-sm border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 shadow-2xs transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                    className="h-11 w-full rounded-xl font-medium text-sm border border-slate-800 bg-slate-950/60 hover:bg-slate-800/60 text-slate-200 shadow-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                   >
-                    <Camera className="w-4 h-4 text-slate-500" />
+                    <Camera className="w-4 h-4 text-indigo-400" />
                     Scan QR Code via Camera
                   </Button>
                 </CardContent>
@@ -197,22 +197,22 @@ export default function Home() {
 
             {/* Connected Peer Info (Shown on Left Side when Connected) */}
             {connected && remotePeerInfo && (
-              <Card className="rounded-2xl border border-emerald-200 bg-emerald-50/70 shadow-xs">
-                <CardHeader className="pb-2">
+              <Card className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
+                <CardHeader className="pb-2 border-b border-emerald-500/20">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                    <CardTitle className="text-base font-bold text-emerald-950">Active P2P Session</CardTitle>
+                    <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                    <CardTitle className="text-base font-bold text-emerald-200">Active P2P Session</CardTitle>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4 text-sm bg-white/80 p-3.5 rounded-xl border border-emerald-200/60">
+                <CardContent className="pt-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm bg-slate-950/60 p-3.5 rounded-xl border border-emerald-500/20">
                     <div>
-                      <p className="text-xs text-emerald-700 font-medium">Remote Device</p>
-                      <p className="font-semibold text-emerald-950 mt-0.5">{remotePeerInfo.displayName}</p>
+                      <p className="text-xs text-emerald-400 font-medium">Remote Device</p>
+                      <p className="font-semibold text-slate-100 mt-0.5">{remotePeerInfo.displayName}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-emerald-700 font-medium">Peer ID</p>
-                      <p className="font-mono font-bold text-emerald-800 mt-0.5">{remotePeerInfo.peerId}</p>
+                      <p className="text-xs text-emerald-400 font-medium">Peer ID</p>
+                      <p className="font-mono font-bold text-emerald-300 mt-0.5">{remotePeerInfo.peerId}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -223,17 +223,17 @@ export default function Home() {
           {/* Right Column: Setup & Transfer Interface */}
           <div className="space-y-6">
             {/* Device Name Setup */}
-            <Card className="rounded-2xl border border-slate-200/80 bg-white shadow-xs hover:shadow-md transition-all duration-200">
-              <CardHeader className="pb-3">
+            <Card className="rounded-2xl border border-slate-800/80 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
+              <CardHeader className="pb-3 border-b border-slate-800/60">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-lg font-bold text-slate-900">Setup Your Device</CardTitle>
-                    <CardDescription className="text-xs text-slate-500">Give your device a name for easy identification</CardDescription>
+                    <CardTitle className="text-base sm:text-lg font-bold text-slate-100">Setup Your Device</CardTitle>
+                    <CardDescription className="text-xs text-slate-400">Give your device a memorable name</CardDescription>
                   </div>
-                  <HelpTooltip content="Choose a memorable name for your device. This name will be visible to other devices when they connect to you." />
+                  <HelpTooltip content="Choose a name for your device. This name will be visible to other devices when paired." />
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="pt-5 space-y-4">
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -243,13 +243,13 @@ export default function Home() {
                       if (displayNameInput.trim()) setDisplayName(displayNameInput.trim());
                     }}
                     placeholder="Enter device name"
-                    className="flex-1 h-11 px-4 text-sm font-medium rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all outline-none"
+                    className="flex-1 h-11 px-4 text-sm font-medium rounded-xl border border-slate-800 bg-slate-950/70 text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all outline-none"
                   />
                 </div>
-                <div className="flex items-center justify-between text-xs text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="font-medium">Device Identity Badge</span>
-                  <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200/60">
-                    {peerId || "Generating..."}
+                <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-950/50 p-3 rounded-xl border border-slate-800">
+                  <span className="font-medium">Identity Badge</span>
+                  <span className="font-mono font-bold text-indigo-400 bg-indigo-950/80 px-2.5 py-1 rounded-lg border border-indigo-800/50">
+                    {peerId || "GENERATING..."}
                   </span>
                 </div>
               </CardContent>
@@ -271,8 +271,8 @@ export default function Home() {
 
         {/* QR Scanner Modal */}
         {showScanner && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+            <div className="w-full max-w-md bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-slate-800">
               <QRCodeScanner onScan={handleScanQR} onClose={() => setShowScanner(false)} />
             </div>
           </div>
@@ -280,9 +280,9 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-slate-200/80 mt-16">
+      <footer className="border-t border-slate-800/80 mt-16 bg-slate-950/60">
         <div className="max-w-6xl mx-auto px-4 py-6 text-center text-slate-500 text-xs sm:text-sm font-medium">
-          <p>P2P File Transfer • End-to-End Encrypted WebRTC Transport • Zero Cloud Storage</p>
+          <p>P2P Secure Transfer • End-to-End Encrypted WebRTC Transport • Zero Server Storage</p>
         </div>
       </footer>
     </div>

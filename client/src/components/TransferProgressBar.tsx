@@ -45,48 +45,48 @@ export function TransferProgressBar({
   const transferredBytes = transfer.transferredBytes;
 
   return (
-    <div className="w-full space-y-3 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 animate-in fade-in duration-300">
+    <div className="w-full space-y-3 p-4 bg-slate-950/80 rounded-2xl border border-indigo-800/40 shadow-xl animate-in fade-in duration-300">
       {/* File Name and Status */}
       <div className="flex items-center justify-between">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-900 truncate">
+          <p className="text-sm font-bold text-slate-100 truncate">
             {transfer.fileName}
           </p>
-          <p className="text-xs text-gray-600 mt-1">
+          <p className="text-xs text-slate-400 mt-1">
             {formatBytes(transferredBytes)} of {formatBytes(totalBytes)}
           </p>
         </div>
         <div className="flex items-center gap-2 ml-4">
-          <span className="text-lg font-bold text-blue-600 min-w-[3rem] text-right">
+          <span className="text-lg font-black text-indigo-400 min-w-[3rem] text-right">
             {Math.round(progressPercent)}%
           </span>
         </div>
       </div>
 
       {/* Progress Bar */}
-      <div className="space-y-1">
-        <div className="relative h-3 bg-blue-100 rounded-full overflow-hidden">
+      <div className="space-y-1.5">
+        <div className="relative h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
           <div
-            className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500 ease-out"
+            className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 rounded-full transition-all duration-500 ease-out shadow-lg shadow-indigo-500/30"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-600">
+        <div className="flex items-center justify-between text-xs font-medium">
+          <span className="text-slate-400">
             {transfer.progress} / {transfer.total} chunks
           </span>
-          <span className="text-gray-600">
-            Speed: {formatSpeed(transfer.speed)}
+          <span className="text-indigo-400 font-semibold">
+            {formatSpeed(transfer.speed)}
           </span>
         </div>
       </div>
 
       {/* Time Remaining and Controls */}
-      <div className="flex items-center justify-between pt-2 border-t border-blue-200">
+      <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
         <div className="flex-1">
-          <p className="text-sm font-medium text-gray-900">
+          <p className="text-xs font-medium text-slate-300">
             Time remaining:{" "}
-            <span className="text-blue-600 font-semibold">
+            <span className="text-indigo-400 font-semibold">
               {formatTime(transfer.timeRemaining)}
             </span>
           </p>
@@ -97,13 +97,13 @@ export function TransferProgressBar({
               variant="ghost"
               size="sm"
               onClick={onPauseResume}
-              className="h-8 w-8 p-0"
+              className="h-8 w-8 p-0 text-slate-300 hover:text-white hover:bg-slate-800"
               title={isPaused ? "Resume transfer" : "Pause transfer"}
             >
               {isPaused ? (
-                <Play className="w-4 h-4" />
+                <Play className="w-4 h-4 text-indigo-400" />
               ) : (
-                <Pause className="w-4 h-4" />
+                <Pause className="w-4 h-4 text-amber-400" />
               )}
             </Button>
           )}
@@ -112,7 +112,7 @@ export function TransferProgressBar({
               variant="ghost"
               size="sm"
               onClick={onCancel}
-              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+              className="h-8 w-8 p-0 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40"
               title="Cancel transfer"
             >
               <X className="w-4 h-4" />
@@ -122,22 +122,22 @@ export function TransferProgressBar({
       </div>
 
       {/* Detailed Stats */}
-      <div className="grid grid-cols-3 gap-1 sm:gap-2 pt-2 border-t border-blue-200 text-center">
+      <div className="grid grid-cols-3 gap-1 sm:gap-2 pt-2 border-t border-slate-800/80 text-center">
         <div className="text-center min-w-0">
-          <p className="text-[10px] sm:text-xs text-gray-600 truncate">Upload Speed</p>
-          <p className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
+          <p className="text-[10px] sm:text-xs text-slate-400 truncate">Transfer Speed</p>
+          <p className="text-xs sm:text-sm font-semibold text-slate-100 truncate">
             {formatSpeed(transfer.speed)}
           </p>
         </div>
         <div className="text-center min-w-0">
-          <p className="text-[10px] sm:text-xs text-gray-600 truncate">Time Left</p>
-          <p className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
+          <p className="text-[10px] sm:text-xs text-slate-400 truncate">Time Left</p>
+          <p className="text-xs sm:text-sm font-semibold text-indigo-300 truncate">
             {formatTime(transfer.timeRemaining)}
           </p>
         </div>
         <div className="text-center min-w-0">
-          <p className="text-[10px] sm:text-xs text-gray-600 truncate">Progress</p>
-          <p className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
+          <p className="text-[10px] sm:text-xs text-slate-400 truncate">Progress</p>
+          <p className="text-xs sm:text-sm font-semibold text-emerald-400 truncate">
             {Math.round(progressPercent)}%
           </p>
         </div>
