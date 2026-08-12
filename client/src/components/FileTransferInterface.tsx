@@ -41,7 +41,7 @@ export function FileTransferInterface({
 }: FileTransferInterfaceProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [receivedChunks, setReceivedChunks] = useState<Map<number, number[]>>(new Map());
+  const receivedChunksRef = useRef<Map<number, any>>(new Map());
   const [receivedFileName, setReceivedFileName] = useState<string>("");
   const [isReceiving, setIsReceiving] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -83,7 +83,7 @@ export function FileTransferInterface({
     if (!connected) {
       setIsReceiving(false);
       setReceivedFileName("");
-      setReceivedChunks(new Map());
+      receivedChunksRef.current.clear();
     }
   }, [connected]);
 
@@ -130,45 +130,40 @@ export function FileTransferInterface({
       setIsReceiving(true);
       onReceiveFile(
         (data) => {
-          // Handle file chunk
-          setReceivedChunks((prev) => {
-            const chunks = new Map(prev);
-            chunks.set(data.chunkIndex, data.data);
-            return chunks;
-          });
+          // Store chunk synchronously in useRef — zero React state updates, zero DOM re-renders!
+          receivedChunksRef.current.set(data.chunkIndex, data.data);
           setReceivedFileName(data.fileName);
         },
         (data) => {
           // Handle file complete
-          setReceivedChunks((prev) => {
-            const total = data.totalChunks || prev.size;
-            const sortedChunks: Uint8Array[] = [];
-            for (let i = 0; i < total; i++) {
-              const chunk = prev.get(i);
-              if (chunk) {
-                sortedChunks.push(new Uint8Array(chunk));
-              }
+          const chunks = receivedChunksRef.current;
+          const total = data.totalChunks || chunks.size;
+          const sortedChunks: Uint8Array[] = [];
+          for (let i = 0; i < total; i++) {
+            const chunk = chunks.get(i);
+            if (chunk) {
+              sortedChunks.push(new Uint8Array(chunk));
             }
+          }
 
-            const blob = new Blob(sortedChunks as BlobPart[]);
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = data.fileName;
-            link.click();
-            URL.revokeObjectURL(url);
+          const blob = new Blob(sortedChunks as BlobPart[]);
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = data.fileName;
+          link.click();
+          URL.revokeObjectURL(url);
 
-            // Log completion in session history
-            addHistoryRecord({
-              fileName: data.fileName,
-              fileSize: blob.size || data.fileSize || 0,
-              direction: "receive",
-              status: "completed",
-            });
-
-            setReceivedFileName("");
-            return new Map();
+          // Log completion in session history
+          addHistoryRecord({
+            fileName: data.fileName,
+            fileSize: blob.size || data.fileSize || 0,
+            direction: "receive",
+            status: "completed",
           });
+
+          setReceivedFileName("");
+          receivedChunksRef.current.clear();
         }
       );
     }
@@ -406,6 +401,8 @@ export function FileTransferInterface({
                       if (onCancelTransfer) {
                         onCancelTransfer();
                       }
+                      setReceivedFileName("");
+                      receivedChunksRef.current.clear();
                       if (transferProgress) {
                         addHistoryRecord({
                           fileName: transferProgress.fileName,
