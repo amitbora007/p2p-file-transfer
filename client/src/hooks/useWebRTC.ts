@@ -372,10 +372,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       };
 
       channel.onclose = () => {
-        console.log("[WebRTC] Data channel closed");
-        setConnected(false);
-        setRemotePeerInfo(null);
-        setTransferProgress(null);
+        console.log("[WebRTC] Data channel closed (retaining session state for WebSocket fallback)");
       };
 
       channel.onerror = (err) => {
@@ -396,12 +393,23 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
   const createPeerConnection = useCallback(
     (initiator: boolean, remoteId: string) => {
+      // Clean up any existing stale connection before initiating a fresh connection
       if (pcRef.current) {
-        console.log("[WebRTC] Peer connection already exists");
-        return;
+        console.log("[WebRTC] Closing existing stale RTCPeerConnection before creating fresh one");
+        try {
+          pcRef.current.close();
+        } catch (e) {}
+        pcRef.current = null;
       }
 
-      console.log(`[WebRTC] Creating native RTCPeerConnection (initiator: ${initiator})`);
+      if (dataChannelRef.current) {
+        try {
+          dataChannelRef.current.close();
+        } catch (e) {}
+        dataChannelRef.current = null;
+      }
+
+      console.log(`[WebRTC] Creating native RTCPeerConnection (initiator: ${initiator}, remoteId: ${remoteId})`);
 
       try {
         const pc = new RTCPeerConnection({
@@ -440,10 +448,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
           if (pc.connectionState === "connected") {
             setConnected(true);
             setError("");
-          } else if (["disconnected", "failed", "closed"].includes(pc.connectionState)) {
-            if (dataChannelRef.current?.readyState !== "open") {
-              setConnected(false);
-            }
           }
         };
 
@@ -650,9 +654,11 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     });
 
     socket.on("peer-disconnected", (data: any) => {
-      console.log(`[WebRTC] Peer disconnected: ${data.peerId}`);
+      console.log(`[WebRTC] Peer disconnected: ${data?.peerId}`);
       if (pcRef.current) {
-        pcRef.current.close();
+        try {
+          pcRef.current.close();
+        } catch (e) {}
         pcRef.current = null;
       }
       dataChannelRef.current = null;
@@ -660,17 +666,24 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       setConnected(false);
       setRemotePeerInfo(null);
       setTransferProgress(null);
+      setError("");
 
       // If the disconnection was explicit, generate a brand new Peer ID for this device too!
       if (data?.explicit) {
         const newPeerId = Array.from(crypto.getRandomValues(new Uint8Array(6)))
           .map((b) => b.toString(16).padStart(2, "0").toUpperCase())
           .join("");
-        localStorage.setItem(PEER_ID_KEY, newPeerId);
+        try {
+          localStorage.setItem(PEER_ID_KEY, newPeerId);
+        } catch (e) {}
         setPeerId(newPeerId);
         peerIdRef.current = newPeerId;
         const { displayName: curName, isInitiator: curInit } = optionsRef.current;
         socket.emit("register-peer", { displayName: curName, isInitiator: curInit, preferredPeerId: newPeerId });
+
+        if (typeof window !== "undefined" && window.history.replaceState) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
       }
     });
 
@@ -680,10 +693,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     });
 
     socket.on("disconnect", () => {
-      console.log("[WebRTC] Socket disconnected");
-      if (dataChannelRef.current?.readyState !== "open") {
-        setConnected(false);
-      }
+      console.log("[WebRTC] Socket temporarily disconnected (retaining session state for auto-reconnect)");
     });
 
     return () => {
