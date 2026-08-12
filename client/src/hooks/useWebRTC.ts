@@ -274,11 +274,14 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     sendDataToPeer({ type: "file-cancel" });
   }, [sendDataToPeer]);
 
+  const sessionStartChunkRef = useRef<number>(0);
+
   const handleIncomingMessage = useCallback((message: any) => {
     if (!message) return;
     if (message.type === "file-start") {
       console.log(`[WebRTC] Incoming file transfer starting: ${message.fileName}`);
       receiveStartTimeRef.current = Date.now();
+      sessionStartChunkRef.current = 0;
       lastReceivedChunkIndexRef.current = -1;
       setTransferProgress({
         fileName: message.fileName,
@@ -297,6 +300,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       }
       if (receiveStartTimeRef.current === null || message.chunkIndex === 0) {
         receiveStartTimeRef.current = Date.now();
+        sessionStartChunkRef.current = message.chunkIndex;
       }
 
       // Send ACK back to sender every 8 chunks or on final chunk
@@ -309,10 +313,15 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
       const chunkSize = 64 * 1024;
       const fileSizeBytes = message.totalChunks * chunkSize;
-      const transferredBytes = Math.min((message.chunkIndex + 1) * chunkSize, fileSizeBytes);
-      const elapsed = Math.max((Date.now() - receiveStartTimeRef.current) / 1000, 0.1);
-      const speed = transferredBytes / elapsed / (1024 * 1024); // MB/s
-      const remainingBytes = Math.max(fileSizeBytes - transferredBytes, 0);
+      const totalTransferredBytes = Math.min((message.chunkIndex + 1) * chunkSize, fileSizeBytes);
+
+      // Calculate speed based on chunks received in THIS active session to prevent speed spikes on reconnect
+      const sessionChunks = Math.max(message.chunkIndex - sessionStartChunkRef.current + 1, 1);
+      const sessionBytes = sessionChunks * chunkSize;
+      const elapsed = Math.max((Date.now() - receiveStartTimeRef.current) / 1000, 0.5);
+      const speed = sessionBytes / elapsed / (1024 * 1024); // MB/s
+
+      const remainingBytes = Math.max(fileSizeBytes - totalTransferredBytes, 0);
       const timeRemaining = speed > 0 ? (remainingBytes / (1024 * 1024)) / speed : 0;
 
       setTransferProgress({
@@ -320,7 +329,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         progress: message.chunkIndex + 1,
         total: message.totalChunks,
         fileSizeBytes,
-        transferredBytes,
+        transferredBytes: totalTransferredBytes,
         speed,
         timeRemaining,
         direction: "receive",
@@ -335,15 +344,15 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       resumeFromChunkRef.current = resumeFrom;
 
       // Automatically unpause sender if transfer was paused due to screen lock or temporary drop
-      if (isPausedRef.current) {
-        console.log("[WebRTC Auto-Resume] Unpausing sender on auto-resume request");
-        if (pausedStartTimeRef.current !== null) {
-          totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
-          pausedStartTimeRef.current = null;
-        }
-        isPausedRef.current = false;
-        setIsPaused(false);
+      if (pausedStartTimeRef.current !== null) {
+        totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
+        pausedStartTimeRef.current = null;
       }
+      isPausedRef.current = false;
+      setIsPaused(false);
+
+      // Send file-resume signal to receiver so receiver unpauses its UI state
+      sendDataToPeer({ type: "file-resume" });
     } else if (message.type === "file-complete") {
       receiveStartTimeRef.current = null;
       lastReceivedChunkIndexRef.current = -1;

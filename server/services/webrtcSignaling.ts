@@ -31,7 +31,7 @@ class WebRTCSignalingService {
       : "*";
 
     // Senior Backend Socket.IO Tuning:
-    // - pingInterval: 10s & pingTimeout: 5s -> detect dead 4G sockets fast (5s threshold)
+    // - pingInterval: 25s & pingTimeout: 20s -> generous thresholds to prevent disconnects during heavy P2P/relay streaming
     // - maxHttpBufferSize: 10MB cap per chunk payload
     // - perMessageDeflate: false -> disable compression to reduce CPU overhead on high-throughput binary chunks
     this.io = new SocketIOServer(httpServer, {
@@ -40,8 +40,8 @@ class WebRTCSignalingService {
         methods: ["GET", "POST"],
       },
       transports: ["websocket", "polling"],
-      pingInterval: 10000,
-      pingTimeout: 5000,
+      pingInterval: 25000,
+      pingTimeout: 20000,
       maxHttpBufferSize: 10 * 1024 * 1024,
       perMessageDeflate: false,
     });
