@@ -204,17 +204,17 @@ export function FileTransferInterface({
   return (
     <div className="space-y-4 w-full">
       {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="rounded-2xl border-rose-900/50 bg-rose-950/40 text-rose-200">
+          <AlertCircle className="h-4 w-4 text-rose-400" />
+          <AlertDescription className="text-rose-200 text-xs sm:text-sm font-medium">{error}</AlertDescription>
         </Alert>
       )}
 
       {!connected && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Not connected to a peer yet. You can select a file now, then generate or scan a QR code to connect and send it.
+        <Alert className="rounded-2xl border border-indigo-500/30 bg-indigo-950/30 text-indigo-200 backdrop-blur-xl shadow-lg">
+          <AlertCircle className="h-4 w-4 text-indigo-400" />
+          <AlertDescription className="text-indigo-200 text-xs sm:text-sm font-medium">
+            Not connected to a peer. Please connect to a peer to initiate the transfer.
           </AlertDescription>
         </Alert>
       )}
