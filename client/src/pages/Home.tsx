@@ -153,10 +153,7 @@ export default function Home() {
             <QRCodeGenerator
               peerId={peerId}
               displayName={displayNameInput}
-              onDisplayNameChange={(name) => {
-                setDisplayNameInput(name);
-                setDisplayName(name);
-              }}
+              onDisplayNameChange={(name) => setDisplayNameInput(name)}
             />
 
             {/* Connect Card (Shown when Disconnected) */}
