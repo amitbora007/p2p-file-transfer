@@ -430,7 +430,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         .map((b) => b.toString(16).padStart(2, "0").toUpperCase())
         .join("");
       try {
-        localStorage.setItem(PEER_ID_KEY, newPeerId);
+        sessionStorage.setItem(PEER_ID_KEY, newPeerId);
       } catch (e) {}
       setPeerId(newPeerId);
       peerIdRef.current = newPeerId;
@@ -585,13 +585,13 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     // Generate once per browser and store in localStorage so the same Peer ID
     // is reused even if Render/server restarts or the socket reconnects.
     const getOrCreateStablePeerId = (): string => {
-      let id = localStorage.getItem(PEER_ID_KEY);
+      let id = sessionStorage.getItem(PEER_ID_KEY);
       if (!id) {
         // Generate a 12-char hex ID matching the server format
         id = Array.from(crypto.getRandomValues(new Uint8Array(6)))
           .map(b => b.toString(16).padStart(2, "0").toUpperCase())
           .join("");
-        localStorage.setItem(PEER_ID_KEY, id);
+        sessionStorage.setItem(PEER_ID_KEY, id);
       }
       return id;
     };
@@ -614,7 +614,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
               setPeerId(response.peerId);
               peerIdRef.current = response.peerId;
               try {
-                localStorage.setItem(PEER_ID_KEY, response.peerId);
+                sessionStorage.setItem(PEER_ID_KEY, response.peerId);
               } catch (e) {}
               setIsRegistered(true); // ← only NOW is it safe to send signals
               console.log(`[WebRTC] Registered with peerId: ${response.peerId}`);
@@ -766,7 +766,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         .map((b) => b.toString(16).padStart(2, "0").toUpperCase())
         .join("");
       try {
-        localStorage.setItem(PEER_ID_KEY, newPeerId);
+        sessionStorage.setItem(PEER_ID_KEY, newPeerId);
       } catch (e) {}
       setPeerId(newPeerId);
       peerIdRef.current = newPeerId;
@@ -1104,7 +1104,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       .join("");
 
     try {
-      localStorage.setItem(PEER_ID_KEY, newPeerId);
+      sessionStorage.setItem(PEER_ID_KEY, newPeerId);
     } catch (e) {}
 
     setPeerId(newPeerId);
@@ -1120,7 +1120,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
             setPeerId(response.peerId);
             peerIdRef.current = response.peerId;
             try {
-              localStorage.setItem(PEER_ID_KEY, response.peerId);
+              sessionStorage.setItem(PEER_ID_KEY, response.peerId);
             } catch (e) {}
             console.log(`[WebRTC] Successfully re-registered with new Peer ID: ${response.peerId}`);
           }

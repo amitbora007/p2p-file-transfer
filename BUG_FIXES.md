@@ -16,6 +16,11 @@ This document maintains a comprehensive record of all technical bug fixes, perfo
 - **Fix**: Sender automatically detects `request-resume` signals from the Receiver, unpauses execution (`isPausedRef.current = false`), sends a `file-resume` sync message, and resumes chunk streaming seamlessly.
 - **Commit**: `ccd573c`
 
+### 3. Tab-Scoped Session Peer ID Generation
+- **Issue**: Closing and reopening a browser tab reused the exact same Peer ID because it was persisted in `localStorage`.
+- **Fix**: Updated `PEER_ID_KEY` storage to `sessionStorage`. Closing and reopening a browser tab now generates a **brand new random Peer ID** for the new session, while active transfers, mobile screen unlocks, and automatic reconnections within the tab retain the active Peer ID seamlessly.
+- **Commit**: Current
+
 ### 3. Dual-Device Active Transfer Protection
 - **Issue**: Senders or Receivers could attempt concurrent file drops mid-transfer, breaking WebRTC flow control or disconnecting the signaling socket.
 - **Fix**: Implemented `file-start` signaling events. Both Sender and Receiver lock their dropzones, file inputs, and "Choose File" / "Send File" buttons during streaming (`transferProgress !== null`).
