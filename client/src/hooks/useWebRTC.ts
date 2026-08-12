@@ -337,6 +337,23 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         timeElapsed: Math.round(overallElapsed),
         direction: "receive",
       });
+
+      // Auto-trigger completion on Receiver as soon as final chunk arrives
+      if (message.chunkIndex + 1 >= message.totalChunks) {
+        console.log(`[WebRTC] Final chunk #${message.chunkIndex + 1}/${message.totalChunks} received! Auto-completing download for ${message.fileName}`);
+        receiveStartTimeRef.current = null;
+        lastReceivedChunkIndexRef.current = -1;
+        if (onCompleteRef.current) {
+          onCompleteRef.current({
+            fileName: message.fileName,
+            fileSize: fileSizeBytes,
+            totalChunks: message.totalChunks,
+          });
+        }
+        setTimeout(() => {
+          setTransferProgress(null);
+        }, 150);
+      }
     } else if (message.type === "chunk-ack") {
       if (typeof message.lastChunkIndex === "number") {
         lastAckedChunkIndexRef.current = message.lastChunkIndex;
@@ -917,13 +934,31 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         }
 
         if (start >= file.size) {
+          let currentPausedDuration = totalPausedDurationRef.current;
+          const elapsed = Math.max((Date.now() - startTime - currentPausedDuration) / 1000, 0.1);
+          setTransferProgress({
+            fileName: file.name,
+            progress: totalChunks,
+            total: totalChunks,
+            fileSizeBytes: file.size,
+            transferredBytes: file.size,
+            speed: file.size / elapsed / (1024 * 1024),
+            timeRemaining: 0,
+            timeElapsed: Math.round(elapsed),
+            direction: "send",
+          });
+
           sendDataToPeer({
             type: "file-complete",
             fileName: file.name,
             fileSize: file.size,
             totalChunks,
           });
-          setTransferProgress(null);
+
+          setTimeout(() => {
+            setTransferProgress(null);
+          }, 150);
+
           console.log(`[WebRTC] File transfer complete: ${file.name}`);
           return;
         }
