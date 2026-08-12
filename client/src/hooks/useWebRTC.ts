@@ -966,7 +966,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
               fileName: file.name,
               chunkIndex: sentChunks,
               totalChunks: totalChunks,
-              data: Array.from(new Uint8Array(data)),
+              data: new Uint8Array(data),
             });
 
             if (!sent) {
@@ -996,9 +996,9 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
               direction: "send",
             });
 
-            // Yield to event loop every 3 chunks so UI renders progress & mobile UI stays responsive
-            if (sentChunks % 3 === 0) {
-              await new Promise((r) => setTimeout(r, 10));
+            // Yield to browser event loop every 4 chunks (256 KB) so Socket.IO ping/pong heartbeats & UI stay 100% responsive
+            if (sentChunks % 4 === 0) {
+              await new Promise((r) => setTimeout(r, 0));
             }
 
             sendChunk(end);
