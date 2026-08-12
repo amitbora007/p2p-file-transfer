@@ -170,32 +170,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     }
   }, [connected, transferProgress, requestWakeLock, releaseWakeLock, startSilentAudio, stopSilentAudio]);
 
-  // Handle visibility change (e.g. screen lock/unlock or tab switching)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        console.log("[WakeLock] Page visible, re-requesting Wake Lock");
-        if (connected || transferProgress !== null) {
-          requestWakeLock();
-        }
-        if (socketRef.current?.connected) {
-          const { displayName: curName, isInitiator: curInit } = optionsRef.current;
-          socketRef.current.emit("register-peer", { displayName: curName, isInitiator: curInit }, (response: any) => {
-            if (response?.success && response.peerId) {
-              setPeerId(response.peerId);
-              peerIdRef.current = response.peerId;
-            }
-          });
-        }
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [connected, transferProgress, requestWakeLock]);
-
   const sendDataToPeer = useCallback((payload: any) => {
     if (dataChannelRef.current?.readyState === "open") {
       try {
@@ -216,6 +190,53 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
     return false;
   }, []);
+
+  // Handle visibility change (e.g. screen lock/unlock or tab switching)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        console.log("[Screen Unlock] Page visible, restoring session & re-requesting Wake Lock");
+        if (connected || transferProgress !== null || remoteIdRef.current) {
+          requestWakeLock();
+          startSilentAudio();
+        }
+
+        const socket = socketRef.current;
+        if (socket) {
+          if (!socket.connected) {
+            console.log("[Screen Unlock] Socket disconnected during lock, forcing reconnect...");
+            socket.connect();
+          }
+
+          const { displayName: curName, isInitiator: curInit } = optionsRef.current;
+          socket.emit(
+            "register-peer",
+            { displayName: curName, isInitiator: curInit, preferredPeerId: peerIdRef.current },
+            (response: any) => {
+              if (response?.success && response.peerId) {
+                setPeerId(response.peerId);
+                peerIdRef.current = response.peerId;
+              }
+            }
+          );
+        }
+
+        // If downloading/uploading when screen unlocked, send resume request
+        if (lastReceivedChunkIndexRef.current >= 0 && remoteIdRef.current) {
+          console.log(`[Screen Unlock Resume] Triggering auto-resume from chunk #${lastReceivedChunkIndexRef.current + 1}`);
+          sendDataToPeer({
+            type: "request-resume",
+            lastReceivedChunkIndex: lastReceivedChunkIndexRef.current,
+          });
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [connected, transferProgress, requestWakeLock, startSilentAudio, sendDataToPeer]);
 
   const pauseTransfer = useCallback(() => {
     if (!isPausedRef.current) {

@@ -22,6 +22,7 @@ class WebRTCSignalingService {
   private sessions: Map<string, PeerSession> = new Map(); // socketId -> PeerSession
   private peerIdToSocketId: Map<string, string> = new Map(); // peerId -> socketId (O(1) lookup index)
   private peerConnections: Map<string, Set<string>> = new Map(); // socketId -> Set<connectedSocketId>
+  private disconnectGraceTimers: Map<string, NodeJS.Timeout> = new Map(); // peerId -> grace timeout
   private sweeperInterval: NodeJS.Timeout | null = null;
 
   constructor(httpServer: HTTPServer) {
@@ -61,8 +62,9 @@ class WebRTCSignalingService {
       for (const [socketId, session] of Array.from(this.sessions.entries())) {
         const socketExists = this.io.sockets.sockets.has(socketId);
         const isExpired = now - session.createdAt > maxAgeMs;
+        const isPendingGrace = this.disconnectGraceTimers.has(session.peerId);
 
-        if (!socketExists || isExpired) {
+        if ((!socketExists && !isPendingGrace) || isExpired) {
           console.log(`[WebRTC Sweeper] Purging dead/stale session: ${session.peerId} (${socketId})`);
           this.removeSession(socketId);
         }
@@ -74,6 +76,10 @@ class WebRTCSignalingService {
     const session = this.sessions.get(socketId);
     if (session) {
       if (session.peerId) {
+        if (this.disconnectGraceTimers.has(session.peerId)) {
+          clearTimeout(this.disconnectGraceTimers.get(session.peerId)!);
+          this.disconnectGraceTimers.delete(session.peerId);
+        }
         this.peerIdToSocketId.delete(session.peerId);
       }
       this.sessions.delete(socketId);
@@ -100,6 +106,13 @@ class WebRTCSignalingService {
 
         const normPreferred = data.preferredPeerId ? data.preferredPeerId.trim().toUpperCase() : undefined;
 
+        // Cancel any pending lock grace period for this peerId
+        if (normPreferred && this.disconnectGraceTimers.has(normPreferred)) {
+          console.log(`[WebRTC Grace Period Restored] Peer ${normPreferred} reconnected from screen lock`);
+          clearTimeout(this.disconnectGraceTimers.get(normPreferred)!);
+          this.disconnectGraceTimers.delete(normPreferred);
+        }
+
         if (session) {
           // Existing session — update display name and peerId if preferredPeerId changed
           const oldPeerId = session.peerId;
@@ -117,13 +130,29 @@ class WebRTCSignalingService {
             console.log(`[WebRTC] Peer name updated: ${peerId} (${data.displayName})`);
           }
         } else {
-          // New connection — reuse the client's preferred Peer ID and evict any stale dead session
+          // New connection — reuse client's preferred Peer ID & migrate any active peerConnections
           const preferred = normPreferred;
           if (preferred) {
             const staleSocketId = this.peerIdToSocketId.get(preferred);
             if (staleSocketId && staleSocketId !== socket.id) {
-              console.log(`[WebRTC] Evicting stale session ${staleSocketId} for preferred peer ${preferred}`);
-              this.removeSession(staleSocketId);
+              console.log(`[WebRTC] Migrating socket session ${staleSocketId} -> ${socket.id} for peer ${preferred}`);
+              
+              // Migrate peerConnections mapping to new socket ID
+              const existingConns = this.peerConnections.get(staleSocketId);
+              if (existingConns) {
+                const targetSet = new Set(existingConns);
+                this.peerConnections.set(socket.id, targetSet);
+                targetSet.forEach((tid) => {
+                  const rset = this.peerConnections.get(tid);
+                  if (rset) {
+                    rset.delete(staleSocketId);
+                    rset.add(socket.id);
+                  }
+                });
+                this.peerConnections.delete(staleSocketId);
+              }
+
+              this.sessions.delete(staleSocketId);
             }
             peerId = preferred;
           } else {
@@ -141,6 +170,7 @@ class WebRTCSignalingService {
           this.sessions.set(socket.id, session);
           this.peerIdToSocketId.set(peerId, socket.id);
           this.peerConnections.set(socket.id, new Set());
+          console.log(`[WebRTC] Registered peer: ${peerId} (${data.displayName}) [socket: ${socket.id}]`);
         }
 
         if (typeof callback === "function") {
@@ -216,6 +246,11 @@ class WebRTCSignalingService {
         const fromSession = this.sessions.get(socket.id);
         if (!fromSession) return;
 
+        if (this.disconnectGraceTimers.has(fromSession.peerId)) {
+          clearTimeout(this.disconnectGraceTimers.get(fromSession.peerId)!);
+          this.disconnectGraceTimers.delete(fromSession.peerId);
+        }
+
         const targetSocketIds = new Set<string>();
 
         // 1. Direct lookup by target peer ID
@@ -261,11 +296,24 @@ class WebRTCSignalingService {
         }
       });
 
-      socket.on("disconnect", () => {
+      socket.on("disconnect", (reason) => {
         const session = this.sessions.get(socket.id);
         if (session) {
-          console.log(`[WebRTC] Peer disconnected: ${session.peerId}`);
-          this.removeSession(socket.id);
+          console.log(`[WebRTC] Socket disconnected (${reason}) for peer ${session.peerId}. Holding session in 30s lock grace period.`);
+          const peerId = session.peerId;
+          const targetSocketId = socket.id;
+
+          if (this.disconnectGraceTimers.has(peerId)) {
+            clearTimeout(this.disconnectGraceTimers.get(peerId)!);
+          }
+
+          const timer = setTimeout(() => {
+            console.log(`[WebRTC Grace Expired] Purging session for peer: ${peerId}`);
+            this.removeSession(targetSocketId);
+            this.disconnectGraceTimers.delete(peerId);
+          }, 30000);
+
+          this.disconnectGraceTimers.set(peerId, timer);
         }
       });
 
