@@ -148,9 +148,16 @@ export default function Home() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column: QR Code Generator, Connect Card & Active P2P Session */}
+          {/* Left Column: QR Code Generator & Identity, Connect Card & Active P2P Session */}
           <div className="space-y-6">
-            <QRCodeGenerator peerId={peerId} displayName={displayName} />
+            <QRCodeGenerator
+              peerId={peerId}
+              displayName={displayNameInput}
+              onDisplayNameChange={(name) => {
+                setDisplayNameInput(name);
+                setDisplayName(name);
+              }}
+            />
 
             {/* Connect Card (Shown when Disconnected) */}
             {!connected && (
@@ -220,42 +227,8 @@ export default function Home() {
             )}
           </div>
 
-          {/* Right Column: Setup & Transfer Interface */}
-          <div className="space-y-6">
-            {/* Device Name Setup */}
-            <Card className="rounded-2xl border border-slate-800/80 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
-              <CardHeader className="pb-3 border-b border-slate-800/60">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-base sm:text-lg font-bold text-slate-100">Setup Your Device</CardTitle>
-                    <CardDescription className="text-xs text-slate-400">Give your device a memorable name</CardDescription>
-                  </div>
-                  <HelpTooltip content="Choose a name for your device. This name will be visible to other devices when paired." />
-                </div>
-              </CardHeader>
-              <CardContent className="pt-5 space-y-4">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={displayNameInput}
-                    onChange={(e) => setDisplayNameInput(e.target.value)}
-                    onBlur={() => {
-                      if (displayNameInput.trim()) setDisplayName(displayNameInput.trim());
-                    }}
-                    placeholder="Enter device name"
-                    className="flex-1 h-11 px-4 text-sm font-medium rounded-xl border border-slate-800 bg-slate-950/70 text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all outline-none"
-                  />
-                </div>
-                <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-950/50 p-3 rounded-xl border border-slate-800">
-                  <span className="font-medium">Identity Badge</span>
-                  <span className="font-mono font-bold text-indigo-400 bg-indigo-950/80 px-2.5 py-1 rounded-lg border border-indigo-800/50">
-                    {peerId || "GENERATING..."}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* File Transfer Interface */}
+          {/* Right Column: File Stream Hub & Transfer Interface (Aligned with Left Column Top) */}
+          <div>
             <FileTransferInterface
               connected={connected}
               transferProgress={transferProgress}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { Copy, Download, Check, Link } from "lucide-react";
+import { Copy, Download, Check, Link, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { HelpTooltip } from "@/components/HelpTooltip";
@@ -8,9 +8,10 @@ import { HelpTooltip } from "@/components/HelpTooltip";
 interface QRCodeGeneratorProps {
   peerId: string;
   displayName: string;
+  onDisplayNameChange: (name: string) => void;
 }
 
-export function QRCodeGenerator({ peerId, displayName }: QRCodeGeneratorProps) {
+export function QRCodeGenerator({ peerId, displayName, onDisplayNameChange }: QRCodeGeneratorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [copiedId, setCopiedId] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -72,25 +73,41 @@ export function QRCodeGenerator({ peerId, displayName }: QRCodeGeneratorProps) {
               Your Device Identity
             </CardTitle>
             <CardDescription className="text-xs text-slate-400">
-              Share this QR code or link for instant P2P pairing
+              Share QR code or pair using your unique Peer ID
             </CardDescription>
           </div>
-          <HelpTooltip content="Scan this QR code with any camera or tap Copy Link to pair instantly. Works across 5G, 4G, Wi-Fi, or Internet." />
+          <HelpTooltip content="Scan this QR code or share your Peer ID to pair instantly across 5G, 4G, Wi-Fi, or Internet." />
         </div>
       </CardHeader>
       <CardContent className="pt-5 space-y-4">
-        <div className="flex flex-col items-center justify-center space-y-3">
-          <div className="p-2.5 bg-white rounded-xl shadow-lg border border-slate-700/50 w-44 h-44 flex items-center justify-center transition-transform hover:scale-[1.02]">
-            <canvas ref={canvasRef} className="w-full h-full rounded-md" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-medium">Peer ID:</span>
-            <span className="font-mono text-sm font-bold text-indigo-400 bg-indigo-950/60 px-3 py-0.5 rounded-md border border-indigo-800/50">
+        {/* Inline Device Name & Peer ID Bar */}
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
+            <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
+            Device Name & Identifier
+          </label>
+          <div className="flex items-center gap-2.5 bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 focus-within:border-indigo-500/60 transition-all">
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => onDisplayNameChange(e.target.value)}
+              placeholder="Enter device name"
+              className="flex-1 bg-transparent text-xs font-semibold text-slate-100 placeholder:text-slate-500 outline-none"
+            />
+            <span className="font-mono text-xs font-bold text-indigo-400 bg-indigo-950/80 px-2.5 py-0.5 rounded-md border border-indigo-800/50 shrink-0">
               {peerId || "GENERATING..."}
             </span>
           </div>
         </div>
 
+        {/* Compact QR Code Canvas Container */}
+        <div className="flex flex-col items-center justify-center pt-1">
+          <div className="p-2.5 bg-white rounded-xl shadow-lg border border-slate-700/50 w-44 h-44 flex items-center justify-center transition-transform hover:scale-[1.02]">
+            <canvas ref={canvasRef} className="w-full h-full rounded-md" />
+          </div>
+        </div>
+
+        {/* Action Button Grid */}
         <div className="grid grid-cols-3 gap-2 pt-1">
           <Button
             onClick={handleCopyPeerId}
