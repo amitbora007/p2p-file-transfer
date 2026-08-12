@@ -325,6 +325,38 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       setIsPaused(false);
       setTransferProgress(null);
       setError("File transfer was cancelled by peer.");
+    } else if (message.type === "explicit-session-disconnect") {
+      console.log("[WebRTC] Received explicit session disconnect message from peer");
+      if (pcRef.current) {
+        try {
+          pcRef.current.close();
+        } catch (e) {}
+        pcRef.current = null;
+      }
+      if (dataChannelRef.current) {
+        try {
+          dataChannelRef.current.close();
+        } catch (e) {}
+        dataChannelRef.current = null;
+      }
+      remoteIdRef.current = "";
+      setConnected(false);
+      setRemotePeerInfo(null);
+      setTransferProgress(null);
+      setError("");
+
+      const newPeerId = Array.from(crypto.getRandomValues(new Uint8Array(6)))
+        .map((b) => b.toString(16).padStart(2, "0").toUpperCase())
+        .join("");
+      try {
+        localStorage.setItem(PEER_ID_KEY, newPeerId);
+      } catch (e) {}
+      setPeerId(newPeerId);
+      peerIdRef.current = newPeerId;
+      if (socketRef.current?.connected) {
+        const { displayName: curName, isInitiator: curInit } = optionsRef.current;
+        socketRef.current.emit("register-peer", { displayName: curName, isInitiator: curInit, preferredPeerId: newPeerId });
+      }
     }
   }, []);
 
@@ -341,9 +373,9 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
       channel.onclose = () => {
         console.log("[WebRTC] Data channel closed");
-        if (!socketRef.current?.connected) {
-          setConnected(false);
-        }
+        setConnected(false);
+        setRemotePeerInfo(null);
+        setTransferProgress(null);
       };
 
       channel.onerror = (err) => {
@@ -898,7 +930,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       if (socketRef.current?.connected) {
         socketRef.current.emit("explicit-disconnect", { to: targetPeerId });
       }
-      sendDataToPeer({ type: "file-cancel" });
+      sendDataToPeer({ type: "explicit-session-disconnect" });
     } else if (socketRef.current?.connected) {
       socketRef.current.emit("explicit-disconnect", {});
     }
