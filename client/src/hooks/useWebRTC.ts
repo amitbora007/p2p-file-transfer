@@ -524,19 +524,16 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         "register-peer",
         { displayName: curName, isInitiator: curInit, preferredPeerId: currentPeerId },
         (response: any) => {
-          if (response?.success) {
-            // Server returns confirmed peerId
-            setPeerId(response.peerId);
-            peerIdRef.current = response.peerId;
-            try {
-              localStorage.setItem(PEER_ID_KEY, response.peerId);
-            } catch (e) {}
-            if (response.lanIps && response.lanIps.length > 0) {
-              setServerLanIp(response.lanIps[0]);
+            if (response?.success) {
+              // Server returns confirmed peerId
+              setPeerId(response.peerId);
+              peerIdRef.current = response.peerId;
+              try {
+                localStorage.setItem(PEER_ID_KEY, response.peerId);
+              } catch (e) {}
+              setIsRegistered(true); // ← only NOW is it safe to send signals
+              console.log(`[WebRTC] Registered with peerId: ${response.peerId}`);
             }
-            setIsRegistered(true); // ← only NOW is it safe to send signals
-            console.log(`[WebRTC] Registered with peerId: ${response.peerId}`);
-          }
         }
       );
     };

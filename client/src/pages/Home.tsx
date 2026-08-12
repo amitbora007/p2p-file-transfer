@@ -29,7 +29,6 @@ export default function Home() {
   const {
     isRegistered,
     peerId,
-    serverLanIp,
     connected,
     remotePeerInfo,
     error,
@@ -151,7 +150,7 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Column: QR Code Generator, Connect Card & Active P2P Session */}
           <div className="space-y-6">
-            <QRCodeGenerator peerId={peerId} displayName={displayName} serverLanIp={serverLanIp} />
+            <QRCodeGenerator peerId={peerId} displayName={displayName} />
 
             {/* Connect Card (Shown when Disconnected) */}
             {!connected && (

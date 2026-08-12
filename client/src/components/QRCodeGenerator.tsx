@@ -8,21 +8,16 @@ import { HelpTooltip } from "@/components/HelpTooltip";
 interface QRCodeGeneratorProps {
   peerId: string;
   displayName: string;
-  serverLanIp?: string;
 }
 
-export function QRCodeGenerator({ peerId, displayName, serverLanIp }: QRCodeGeneratorProps) {
+export function QRCodeGenerator({ peerId, displayName }: QRCodeGeneratorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const getOrigin = () => {
     if (typeof window === "undefined") return "";
     const envPublicUrl = (import.meta as any).env?.VITE_PUBLIC_URL;
     if (envPublicUrl) return envPublicUrl.replace(/\/$/, "");
-    const { protocol, hostname, port } = window.location;
-    const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
-    const hostToUse = isLocalhost && serverLanIp ? serverLanIp : hostname;
-    const portStr = port ? `:${port}` : "";
-    return `${protocol}//${hostToUse}${portStr}`;
+    return window.location.origin;
   };
 
   const connectUrl = getOrigin()

@@ -1,20 +1,6 @@
 import { Server as SocketIOServer } from "socket.io";
 import { Server as HTTPServer } from "http";
 import crypto from "crypto";
-import os from "os";
-
-function getLocalIpAddresses(): string[] {
-  const interfaces = os.networkInterfaces();
-  const addresses: string[] = [];
-  for (const k in interfaces) {
-    for (const k2 of interfaces[k] || []) {
-      if (k2.family === "IPv4" && !k2.internal) {
-        addresses.push(k2.address);
-      }
-    }
-  }
-  return addresses;
-}
 
 export interface PeerSession {
   id: string;
@@ -162,7 +148,6 @@ class WebRTCSignalingService {
             success: true,
             peerId,
             sessionId: socket.id,
-            lanIps: getLocalIpAddresses(),
           });
         }
       });
