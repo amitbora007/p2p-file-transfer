@@ -2,25 +2,11 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
-import os from "os";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { initializeWebRTC } from "./webrtc";
-
-function getLocalIpAddresses(): string[] {
-  const interfaces = os.networkInterfaces();
-  const addresses: string[] = [];
-  for (const k in interfaces) {
-    for (const k2 of interfaces[k] || []) {
-      if (k2.family === "IPv4" && !k2.internal) {
-        addresses.push(k2.address);
-      }
-    }
-  }
-  return addresses;
-}
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -72,14 +58,7 @@ async function startServer() {
   }
 
   server.listen(port, "0.0.0.0", () => {
-    console.log(`Server running locally on: http://localhost:${port}/`);
-    const localIps = getLocalIpAddresses();
-    if (localIps.length > 0) {
-      console.log(`Network / Internet access (local network or public domain):`);
-      localIps.forEach(ip => {
-        console.log(`  -> http://${ip}:${port}/`);
-      });
-    }
+    console.log(`[P2P Server] Server listening on port ${port}`);
   });
 }
 
