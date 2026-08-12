@@ -66,25 +66,25 @@ export function QRCodeGenerator({ peerId, displayName, onDisplayNameChange }: QR
 
   return (
     <Card className="w-full border border-slate-800/80 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/40 rounded-2xl overflow-hidden">
-      <CardHeader className="pb-3 border-b border-slate-800/60">
+      <CardHeader className="px-5 py-3 border-b border-slate-800/60">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
+            <CardTitle className="text-sm sm:text-base font-bold text-slate-100 flex items-center gap-2">
               Your Device Identity
             </CardTitle>
-            <CardDescription className="text-xs text-slate-400">
+            <CardDescription className="text-[11px] text-slate-400">
               Share QR code or pair using your unique Peer ID
             </CardDescription>
           </div>
           <HelpTooltip content="Scan this QR code or share your Peer ID to pair instantly across 5G, 4G, Wi-Fi, or Internet." />
         </div>
       </CardHeader>
-      <CardContent className="pt-5 space-y-4">
+      <CardContent className="p-4 sm:p-5 space-y-3.5">
         {/* Inline Device Name & Peer ID Bar */}
         <div className="space-y-1.5">
           <label className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
             <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
-            Device Name & Identifier
+            Device Name & Peer ID (Select "My Device" to rename)
           </label>
           <div className="flex items-center gap-2.5 bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 focus-within:border-indigo-500/60 transition-all">
             <input

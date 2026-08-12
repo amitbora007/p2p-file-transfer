@@ -210,15 +210,6 @@ export function FileTransferInterface({
         </Alert>
       )}
 
-      {!connected && (
-        <Alert className="rounded-2xl border border-indigo-500/30 bg-indigo-950/30 text-indigo-200 backdrop-blur-xl shadow-lg">
-          <AlertCircle className="h-4 w-4 text-indigo-400" />
-          <AlertDescription className="text-indigo-200 text-xs sm:text-sm font-medium">
-            Not connected to a peer. Please connect to a peer to initiate the transfer.
-          </AlertDescription>
-        </Alert>
-      )}
-
       <Tabs defaultValue="transfer" className="w-full">
         <TabsList className="grid w-full grid-cols-2 p-1 h-12 bg-slate-950/80 border border-slate-800/80 rounded-xl">
           <TabsTrigger
@@ -243,19 +234,19 @@ export function FileTransferInterface({
         <TabsContent value="transfer" className="space-y-4 mt-4">
           {/* Send File Section */}
           <Card className="rounded-2xl border border-slate-800/80 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
-            <CardHeader className="pb-3 border-b border-slate-800/60">
+            <CardHeader className="px-5 py-3 border-b border-slate-800/60">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
-                    <Upload className="w-5 h-5 text-indigo-400" />
+                  <CardTitle className="text-sm sm:text-base font-bold text-slate-100 flex items-center gap-2">
+                    <Upload className="w-4 h-4 text-indigo-400" />
                     Send File
                   </CardTitle>
-                  <CardDescription className="text-xs text-slate-400">Stream files directly to the paired device</CardDescription>
+                  <CardDescription className="text-[11px] text-slate-400">Stream files directly to the paired device</CardDescription>
                 </div>
                 <HelpTooltip content="Choose a file from your device and stream it directly to the paired peer. Transferred via end-to-end WebRTC transport." />
               </div>
             </CardHeader>
-            <CardContent className="pt-5 space-y-4">
+            <CardContent className="p-4 sm:p-5 space-y-4">
               <div
                 onDragOver={(e) => { if (connected) handleDragOver(e); }}
                 onDragLeave={handleDragLeave}
@@ -366,19 +357,19 @@ export function FileTransferInterface({
 
           {/* Receive File Section */}
           <Card className="rounded-2xl border border-slate-800/80 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
-            <CardHeader className="pb-3 border-b border-slate-800/60">
+            <CardHeader className="px-5 py-3 border-b border-slate-800/60">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
-                    <Download className="w-5 h-5 text-indigo-400" />
+                  <CardTitle className="text-sm sm:text-base font-bold text-slate-100 flex items-center gap-2">
+                    <Download className="w-4 h-4 text-indigo-400" />
                     Receive File
                   </CardTitle>
-                  <CardDescription className="text-xs text-slate-400">Incoming transfers automatically download to your browser</CardDescription>
+                  <CardDescription className="text-[11px] text-slate-400">Incoming transfers automatically download to your browser</CardDescription>
                 </div>
                 <HelpTooltip content="Files sent by the connected peer will automatically stream and download to your device." />
               </div>
             </CardHeader>
-            <CardContent className="pt-5">
+            <CardContent className="p-4 sm:p-5">
               {transferProgress && transferProgress.direction === "receive" ? (
                 <div className="space-y-3">
                   <TransferProgressBar
@@ -423,14 +414,14 @@ export function FileTransferInterface({
 
         <TabsContent value="history" className="mt-4">
           <Card className="rounded-2xl border border-slate-800/80 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
-            <CardHeader className="pb-3 border-b border-slate-800/60">
+            <CardHeader className="px-5 py-3 border-b border-slate-800/60">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base sm:text-lg font-bold text-slate-100 flex items-center gap-2">
-                    <History className="w-5 h-5 text-indigo-400" />
+                  <CardTitle className="text-sm sm:text-base font-bold text-slate-100 flex items-center gap-2">
+                    <History className="w-4 h-4 text-indigo-400" />
                     Session History
                   </CardTitle>
-                  <CardDescription className="text-xs text-slate-400">File transmission log for active pairing</CardDescription>
+                  <CardDescription className="text-[11px] text-slate-400">File transmission log for active pairing</CardDescription>
                 </div>
                 {history.length > 0 && (
                   <Button

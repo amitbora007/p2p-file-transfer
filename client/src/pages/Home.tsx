@@ -159,11 +159,11 @@ export default function Home() {
             {/* Connect Card (Shown when Disconnected) */}
             {!connected && (
               <Card className="rounded-2xl border border-slate-800/80 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden">
-                <CardHeader className="pb-3 border-b border-slate-800/60">
-                  <CardTitle className="text-base sm:text-lg font-bold text-slate-100">Connect to Remote Device</CardTitle>
-                  <CardDescription className="text-xs text-slate-400">Scan QR code or enter peer ID manually</CardDescription>
+                <CardHeader className="px-5 py-3 border-b border-slate-800/60">
+                  <CardTitle className="text-sm sm:text-base font-bold text-slate-100">Connect to Remote Device</CardTitle>
+                  <CardDescription className="text-[11px] text-slate-400">Scan QR code or enter peer ID manually</CardDescription>
                 </CardHeader>
-                <CardContent className="pt-5 space-y-4">
+                <CardContent className="p-4 sm:p-5 space-y-3.5">
                   <form onSubmit={handleManualConnect} className="flex flex-col sm:flex-row gap-2.5 w-full">
                     <input
                       type="text"
