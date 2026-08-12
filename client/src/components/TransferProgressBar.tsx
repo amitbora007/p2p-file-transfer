@@ -41,6 +41,16 @@ export function TransferProgressBar({
     return minutes + "m " + secs + "s";
   };
 
+  const formatElapsedTime = (seconds?: number) => {
+    if (isPaused) return "Paused";
+    if (!seconds || seconds <= 0 || !isFinite(seconds) || isNaN(seconds)) return "0s";
+    if (seconds < 1) return "< 1s";
+    if (seconds < 60) return Math.round(seconds) + "s";
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return minutes + "m " + secs + "s";
+  };
+
   const totalBytes = transfer.fileSizeBytes;
   const transferredBytes = transfer.transferredBytes;
 
@@ -130,9 +140,9 @@ export function TransferProgressBar({
           </p>
         </div>
         <div className="text-center min-w-0">
-          <p className="text-[10px] sm:text-xs text-slate-400 truncate">Time Left</p>
+          <p className="text-[10px] sm:text-xs text-slate-400 truncate">Time Elapsed</p>
           <p className="text-xs sm:text-sm font-semibold text-indigo-300 truncate">
-            {formatTime(transfer.timeRemaining)}
+            {formatElapsedTime(transfer.timeElapsed)}
           </p>
         </div>
         <div className="text-center min-w-0">

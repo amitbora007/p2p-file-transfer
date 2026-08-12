@@ -15,6 +15,7 @@ export interface TransferProgress {
   transferredBytes: number; // actual bytes transferred
   speed: number; // MB/s
   timeRemaining: number; // seconds
+  timeElapsed?: number; // seconds spent transferring so far
   direction?: "send" | "receive";
 }
 
@@ -323,6 +324,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
       const remainingBytes = Math.max(fileSizeBytes - totalTransferredBytes, 0);
       const timeRemaining = speed > 0 ? (remainingBytes / (1024 * 1024)) / speed : 0;
+      const overallElapsed = Math.max((Date.now() - (receiveStartTimeRef.current || Date.now())) / 1000, 0);
 
       setTransferProgress({
         fileName: message.fileName,
@@ -332,6 +334,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         transferredBytes: totalTransferredBytes,
         speed,
         timeRemaining,
+        timeElapsed: Math.round(overallElapsed),
         direction: "receive",
       });
     } else if (message.type === "chunk-ack") {
@@ -993,6 +996,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
               transferredBytes,
               speed,
               timeRemaining,
+              timeElapsed: Math.round(elapsed),
               direction: "send",
             });
 
