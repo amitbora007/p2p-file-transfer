@@ -21,6 +21,47 @@ export interface TransferProgress {
 
 const PEER_ID_KEY = "p2p_stable_peer_id";
 
+const encodeFileChunkPacket = (fileName: string, chunkIndex: number, totalChunks: number, chunkData: Uint8Array): ArrayBuffer => {
+  const encoder = new TextEncoder();
+  const fileNameBytes = encoder.encode(fileName);
+  const headerSize = 16 + fileNameBytes.length;
+  const totalLength = headerSize + chunkData.length;
+  const buffer = new ArrayBuffer(totalLength);
+  const view = new DataView(buffer);
+  const bytes = new Uint8Array(buffer);
+
+  // Magic 'CHNK' = 0x43484E4B
+  view.setUint32(0, 0x43484E4B, false);
+  view.setUint32(4, chunkIndex, false);
+  view.setUint32(8, totalChunks, false);
+  view.setUint32(12, fileNameBytes.length, false);
+
+  bytes.set(fileNameBytes, 16);
+  bytes.set(chunkData, headerSize);
+
+  return buffer;
+};
+
+const decodeFileChunkPacket = (buffer: ArrayBuffer) => {
+  if (buffer.byteLength < 16) return null;
+  const view = new DataView(buffer);
+  const magic = view.getUint32(0, false);
+  if (magic !== 0x43484E4B) return null; // Not a chunk packet
+
+  const chunkIndex = view.getUint32(4, false);
+  const totalChunks = view.getUint32(8, false);
+  const fileNameLength = view.getUint32(12, false);
+
+  if (buffer.byteLength < 16 + fileNameLength) return null;
+
+  const bytes = new Uint8Array(buffer);
+  const decoder = new TextDecoder();
+  const fileName = decoder.decode(bytes.subarray(16, 16 + fileNameLength));
+  const chunkData = bytes.subarray(16 + fileNameLength);
+
+  return { type: "file-chunk", fileName, chunkIndex, totalChunks, data: chunkData };
+};
+
 export interface UseWebRTCOptions {
   displayName: string;
   isInitiator: boolean;
@@ -443,6 +484,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
   const setupDataChannelEvents = useCallback(
     (channel: RTCDataChannel) => {
       dataChannelRef.current = channel;
+      channel.binaryType = "arraybuffer";
       channel.bufferedAmountLowThreshold = 1024 * 1024; // 1MB threshold
 
       channel.onopen = () => {
@@ -452,7 +494,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       };
 
       channel.onclose = () => {
-        console.log("[WebRTC] Data channel closed (retaining session state for WebSocket fallback)");
+        console.log("[WebRTC] Data channel closed");
       };
 
       channel.onerror = (err) => {
@@ -460,11 +502,18 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       };
 
       channel.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          handleIncomingMessage(message);
-        } catch (err) {
-          console.error("[WebRTC] Error parsing message:", err);
+        if (typeof event.data === "string") {
+          try {
+            const message = JSON.parse(event.data);
+            handleIncomingMessage(message);
+          } catch (err) {
+            console.error("[WebRTC] Error parsing JSON message:", err);
+          }
+        } else if (event.data instanceof ArrayBuffer) {
+          const chunkPacket = decodeFileChunkPacket(event.data);
+          if (chunkPacket) {
+            handleIncomingMessage(chunkPacket);
+          }
         }
       };
     },
@@ -966,13 +1015,8 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
             }
 
             const data = e.target.result as ArrayBuffer;
-            const sent = sendDataToPeer({
-              type: "file-chunk",
-              fileName: file.name,
-              chunkIndex: sentChunks,
-              totalChunks: totalChunks,
-              data: new Uint8Array(data),
-            });
+            const packet = encodeFileChunkPacket(file.name, sentChunks, totalChunks, new Uint8Array(data));
+            const sent = sendDataToPeer(packet);
 
             if (!sent) {
               setError("Failed to send file chunk");

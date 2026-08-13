@@ -37,7 +37,7 @@ This document maintains a comprehensive record of all technical bug fixes, perfo
   - Removed `relay-file-data` event handlers completely from client (`useWebRTC.ts`) and server (`webrtcSignaling.ts`). Render server now performs **Signaling ONLY** (~2 KB metadata per session).
   - Restricted `connected = true` state strictly to `dataChannel.onopen`.
   - Removed artificial 2.5-second connection timer from `connectToPeer()`.
-  - Optimized file chunk transport to stream raw binary `ArrayBuffer` directly over `RTCDataChannel.send()`.
+  - Implemented binary `ArrayBuffer` packet encoding (`encodeFileChunkPacket` & `decodeFileChunkPacket`) with a 16-byte header (`magic`, `chunkIndex`, `totalChunks`, `fileNameLength`) for WebRTC DataChannel streaming. Eliminates `JSON.stringify` message size errors (`Failed to send file chunk`) and CPU overhead.
 - **Commit**: Current
 
 ### 5. Automatic Session History Purging on Disconnect
