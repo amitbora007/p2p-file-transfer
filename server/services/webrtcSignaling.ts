@@ -226,22 +226,6 @@ class WebRTCSignalingService {
         console.log(`[WebRTC] Signal forwarded: ${fromSession.peerId} -> ${data.to} (${data.type})`);
       });
 
-      socket.on("relay-file-data", (data: { to: string; payload: any }) => {
-        const fromSession = this.sessions.get(socket.id);
-        if (!fromSession) return;
-
-        // Fast O(1) target lookup index
-        const targetSocketId = this.peerIdToSocketId.get(data.to) || null;
-
-        if (targetSocketId) {
-          this.io.to(targetSocketId).emit("relay-file-data", {
-            from: fromSession.peerId,
-            fromDisplayName: fromSession.displayName,
-            payload: data.payload,
-          });
-        }
-      });
-
       socket.on("explicit-disconnect", (data?: { to?: string }) => {
         const fromSession = this.sessions.get(socket.id);
         if (!fromSession) return;

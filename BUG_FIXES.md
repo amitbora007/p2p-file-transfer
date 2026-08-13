@@ -31,6 +31,15 @@ This document maintains a comprehensive record of all technical bug fixes, perfo
 - **Fix**: Implemented `explicit-session-disconnect` and `explicit: true` flags. Tapping Disconnect generates fresh Peer IDs for both devices, clears `remoteIdRef`, closes WebRTC connections cleanly, and purges `p2p_paired_peer` from `localStorage`.
 - **Commit**: `4fde245`, `8877861`, `ff8ee3a`
 
+### 4. 100% Pure WebRTC Architecture Upgrade (Eliminating Render Server Bandwidth Exhaustion)
+- **Issue**: Sending file data when DataChannel was unavailable silently used a Socket.IO fallback (`relay-file-data`), routing 64 KB binary chunks through Render Node.js server and exhausting Render's 5 GB monthly bandwidth limit. Additionally, an artificial 2.5-second timer forced `connected = true` before DataChannel was open.
+- **Fix**:
+  - Removed `relay-file-data` event handlers completely from client (`useWebRTC.ts`) and server (`webrtcSignaling.ts`). Render server now performs **Signaling ONLY** (~2 KB metadata per session).
+  - Restricted `connected = true` state strictly to `dataChannel.onopen`.
+  - Removed artificial 2.5-second connection timer from `connectToPeer()`.
+  - Optimized file chunk transport to stream raw binary `ArrayBuffer` directly over `RTCDataChannel.send()`.
+- **Commit**: Current
+
 ### 5. Automatic Session History Purging on Disconnect
 - **Issue**: Session History from a previous pairing session remained visible after explicit disconnection or when pairing with a new device.
 - **Fix**: Added explicit history cleanup to the disconnection effect in `FileTransferInterface.tsx`. Whenever `connected` becomes `false`, `history` state is reset to `[]` and `p2p_transfer_history` is removed from `sessionStorage`.

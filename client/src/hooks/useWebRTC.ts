@@ -172,23 +172,22 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
   }, [connected, transferProgress, requestWakeLock, releaseWakeLock, startSilentAudio, stopSilentAudio]);
 
   const sendDataToPeer = useCallback((payload: any) => {
-    if (dataChannelRef.current?.readyState === "open") {
+    const channel = dataChannelRef.current;
+    if (channel && channel.readyState === "open") {
       try {
-        dataChannelRef.current.send(JSON.stringify(payload));
+        if (typeof payload === "string" || payload instanceof ArrayBuffer || payload instanceof Uint8Array) {
+          channel.send(payload as any);
+        } else {
+          channel.send(JSON.stringify(payload));
+        }
         return true;
       } catch (e) {
-        console.warn("[WebRTC] DataChannel send error, falling back to relay:", e);
+        console.error("[WebRTC] DataChannel send error:", e);
+        return false;
       }
     }
 
-    if (socketRef.current?.connected && remoteIdRef.current) {
-      socketRef.current.emit("relay-file-data", {
-        to: remoteIdRef.current,
-        payload,
-      });
-      return true;
-    }
-
+    console.warn(`[WebRTC] DataChannel unavailable for transport. State: ${channel?.readyState ?? "null"}`);
     return false;
   }, []);
 
@@ -513,22 +512,19 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
         pc.oniceconnectionstatechange = () => {
           console.log(`[WebRTC] ICE Connection state: ${pc.iceConnectionState}`);
-          if (["connected", "completed"].includes(pc.iceConnectionState)) {
-            setConnected(true);
-            setError("");
-          } else if (pc.iceConnectionState === "failed") {
-            console.warn("[WebRTC] ICE Connection failed. Attempting ICE restart...");
-            if (typeof pc.restartIce === "function") {
-              pc.restartIce();
-            }
+          if (pc.iceConnectionState === "failed") {
+            console.warn("[WebRTC] ICE Connection failed.");
+            setConnected(false);
+            setError("Unable to establish a direct WebRTC connection. Check network/TURN configuration.");
+          } else if (["disconnected", "closed"].includes(pc.iceConnectionState)) {
+            setConnected(false);
           }
         };
 
         pc.onconnectionstatechange = () => {
           console.log(`[WebRTC] Connection state: ${pc.connectionState}`);
-          if (pc.connectionState === "connected") {
-            setConnected(true);
-            setError("");
+          if (["failed", "closed"].includes(pc.connectionState)) {
+            setConnected(false);
           }
         };
 
@@ -694,33 +690,14 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       console.error("[WebRTC] Signal error:", data.message);
     });
 
-    socket.on("relay-file-data", (data: any) => {
-      console.log("[WebRTC Relay] Received data from peer:", data.from);
-      if (data.from) {
-        setRemotePeerInfo((prev) => prev || {
-          peerId: data.from,
-          displayName: data.fromDisplayName || "Connected Peer",
-          isInitiator: false,
-        });
-        remoteIdRef.current = data.from;
-      }
-      setConnected(true);
-      setError("");
-
-      if (data.payload) {
-        handleIncomingMessage(data.payload);
-      }
-    });
-
     socket.on("peer-connected", (data: any) => {
-      console.log(`[WebRTC] Peer connected: ${data.peerId} (${data.displayName})`);
+      console.log(`[WebRTC] Peer connected signal received: ${data.peerId} (${data.displayName})`);
       setRemotePeerInfo({
         peerId: data.peerId,
         displayName: data.displayName || "Connected Peer",
         isInitiator: false,
       });
       remoteIdRef.current = data.peerId;
-      setConnected(true);
       setError("");
 
       // If receiver was downloading a file when connection re-established,
@@ -838,20 +815,10 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         } catch (e) {}
       }
 
-      // 1. Attempt WebRTC P2P first
+      // 1. Attempt WebRTC P2P
       createPeerConnection(true, normalizedPeerId);
-
-      // 2. Relay fallback timer: if direct P2P data channel fails to open in 2.5s
-      // (due to carrier CG-NAT blocking STUN/TURN), set connected=true so WebSocket relay enables seamlessly!
-      setTimeout(() => {
-        if (!connected && remoteIdRef.current === normalizedPeerId) {
-          console.log("[WebRTC Relay] Enabling Socket.IO relay mode for cross-network connection");
-          setConnected(true);
-          setError("");
-        }
-      }, 2500);
     },
-    [createPeerConnection, connected]
+    [createPeerConnection]
   );
 
   const sendFile = useCallback(
