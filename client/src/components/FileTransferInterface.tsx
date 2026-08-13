@@ -141,6 +141,8 @@ export function FileTransferInterface({
         (data) => {
           // Handle file complete
           const chunks = receivedChunksRef.current;
+          if (chunks.size === 0) return; // Prevent duplicate download execution
+
           const total = data.totalChunks || chunks.size;
           const sortedChunks: Uint8Array[] = [];
           for (let i = 0; i < total; i++) {
@@ -150,24 +152,32 @@ export function FileTransferInterface({
             }
           }
 
+          setReceivedFileName("");
+          receivedChunksRef.current.clear();
+
           const blob = new Blob(sortedChunks as BlobPart[]);
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = url;
           link.download = data.fileName;
+          document.body.appendChild(link);
           link.click();
-          URL.revokeObjectURL(url);
+          document.body.removeChild(link);
 
-          // Log completion in session history
+          // Delay URL revocation so Safari mobile & desktop download engine has full time to write file
+          setTimeout(() => {
+            try {
+              URL.revokeObjectURL(url);
+            } catch (e) {}
+          }, 10000);
+
+          // Log completion in session history ONCE
           addHistoryRecord({
             fileName: data.fileName,
             fileSize: blob.size || data.fileSize || 0,
             direction: "receive",
             status: "completed",
           });
-
-          setReceivedFileName("");
-          receivedChunksRef.current.clear();
         }
       );
     }

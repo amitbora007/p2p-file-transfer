@@ -88,6 +88,14 @@ This document maintains a comprehensive record of all technical bug fixes, perfo
 - **Fix**: Tapping Cancel on Receiver explicitly clears `receivedFileName = ""` and purges `receivedChunksRef.current`, cleanly returning the UI to the waiting state without false success banners.
 - **Commit**: `b3c5748`
 
+### 13. Elimination of Duplicate Downloads & Safari Download Failure
+- **Issue**: `onCompleteRef` was invoked twice per transfer (once when final chunk arrived, and a second time when `file-complete` signal arrived). This caused 2 duplicate files to download (`file.png` and `file (1).png`), duplicate history records, and caused Safari on iOS/macOS to fail the download (`Downloading Task failed - 0 KB of 0 KB`) due to premature `URL.revokeObjectURL(url)`.
+- **Fix**:
+  - Removed duplicate `onCompleteRef` call from `file-complete` handler in `useWebRTC.ts`. Completion triggers ONCE when final chunk arrives.
+  - Added a `chunks.size === 0` guard and cleared `receivedChunksRef` before blob creation in `FileTransferInterface.tsx`.
+  - Delayed `URL.revokeObjectURL(url)` by 10 seconds, giving Safari's background download manager full time to write the blob to disk cleanly.
+- **Commit**: Current
+
 ---
 
 ## 📊 Analytics, UI/UX & Metric Synchronization

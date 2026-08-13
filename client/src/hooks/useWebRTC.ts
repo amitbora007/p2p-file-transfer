@@ -416,11 +416,8 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     } else if (message.type === "file-complete") {
       receiveStartTimeRef.current = null;
       lastReceivedChunkIndexRef.current = -1;
-      if (onCompleteRef.current) {
-        onCompleteRef.current(message);
-      }
       setTransferProgress(null);
-      console.log(`[WebRTC] File received: ${message.fileName}`);
+      console.log(`[WebRTC] File received signal acknowledged for: ${message.fileName}`);
     } else if (message.type === "file-pause") {
       console.log("[WebRTC] Received pause message from peer");
       if (!isPausedRef.current) {
