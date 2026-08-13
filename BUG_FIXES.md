@@ -94,6 +94,9 @@ This document maintains a comprehensive record of all technical bug fixes, perfo
   - Removed duplicate `onCompleteRef` call from `file-complete` handler in `useWebRTC.ts`. Completion triggers ONCE when final chunk arrives.
   - Added a `chunks.size === 0` guard and cleared `receivedChunksRef` before blob creation in `FileTransferInterface.tsx`.
   - Delayed `URL.revokeObjectURL(url)` by 10 seconds, giving Safari's background download manager full time to write the blob to disk cleanly.
+### 14. Mobile Tab Reload Stream Auto-Recovery Protocol
+- **Issue**: If the Receiver's browser tab reloaded or crashed mid-transfer (e.g. Mobile Safari Out-of-Memory tab reload), Sender remained frozen at its current progress (e.g. 19%), while Receiver reconnected without an active progress bar.
+- **Fix**: Implemented `request-restart` protocol in `useWebRTC.ts`. When Receiver receives a chunk while having no active session, it automatically sends `request-restart` to Sender. Sender resets `sentChunks = 0`, sends a fresh `file-start`, and restarts streaming from 0%, allowing Receiver to display the progress bar and download the file cleanly.
 - **Commit**: Current
 
 ---

@@ -335,6 +335,11 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         direction: "receive",
       });
     } else if (message.type === "file-chunk") {
+      if (receiveStartTimeRef.current === null && message.chunkIndex > 0) {
+        console.warn(`[WebRTC Auto-Recovery] Received chunk #${message.chunkIndex} without active file session. Requesting stream restart from sender.`);
+        sendDataToPeer({ type: "request-restart" });
+        return;
+      }
       lastReceivedChunkIndexRef.current = message.chunkIndex;
       if (onChunkRef.current) {
         onChunkRef.current(message);
@@ -413,6 +418,16 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
       // Send file-resume signal to receiver so receiver unpauses its UI state
       sendDataToPeer({ type: "file-resume" });
+    } else if (message.type === "request-restart") {
+      console.log("[WebRTC Auto-Recovery] Receiver requested full stream restart after tab reload");
+      resumeFromChunkRef.current = 0;
+      if (pausedStartTimeRef.current !== null) {
+        totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
+        pausedStartTimeRef.current = null;
+      }
+      isPausedRef.current = false;
+      setIsPaused(false);
+      sendDataToPeer({ type: "file-resume" });
     } else if (message.type === "file-complete") {
       receiveStartTimeRef.current = null;
       lastReceivedChunkIndexRef.current = -1;
@@ -488,6 +503,15 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         console.log("[WebRTC] Data channel opened");
         setConnected(true);
         setError("");
+
+        // If Receiver has active chunk history from before reconnect, request resume
+        if (lastReceivedChunkIndexRef.current >= 0) {
+          console.log(`[WebRTC Auto-Resume] DataChannel opened! Requesting resume from chunk #${lastReceivedChunkIndexRef.current + 1}`);
+          sendDataToPeer({
+            type: "request-resume",
+            lastReceivedChunkIndex: lastReceivedChunkIndexRef.current,
+          });
+        }
       };
 
       channel.onclose = () => {
