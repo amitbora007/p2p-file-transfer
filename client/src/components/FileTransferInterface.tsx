@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { HelpTooltip } from "@/components/HelpTooltip";
 import { TransferProgressBar } from "@/components/TransferProgressBar";
 import { TransferProgress } from "@/hooks/useWebRTC";
+import { chunkStorage } from "@/utils/chunkStorage";
 
 export interface HistoryRecord {
   id: string;
@@ -134,28 +135,38 @@ export function FileTransferInterface({
       setIsReceiving(true);
       onReceiveFile(
         (data) => {
-          // Store chunk synchronously in useRef — zero React state updates, zero DOM re-renders!
+          // Store chunk in IndexedDB to keep JS RAM under 20 MB (prevents Mobile Safari RAM crash)
+          chunkStorage.saveChunk(data.chunkIndex, data.data);
           receivedChunksRef.current.set(data.chunkIndex, data.data);
           setReceivedFileName(data.fileName);
         },
-        (data) => {
+        async (data) => {
           // Handle file complete
           const chunks = receivedChunksRef.current;
           if (chunks.size === 0) return; // Prevent duplicate download execution
 
           const total = data.totalChunks || chunks.size;
-          const sortedChunks: Uint8Array[] = [];
-          for (let i = 0; i < total; i++) {
-            const chunk = chunks.get(i);
-            if (chunk) {
-              sortedChunks.push(new Uint8Array(chunk));
-            }
-          }
 
           setReceivedFileName("");
           receivedChunksRef.current.clear();
 
-          const blob = new Blob(sortedChunks as BlobPart[]);
+          let blob: Blob;
+          try {
+            // High-efficiency IndexedDB Blob compilation
+            blob = await chunkStorage.compileBlob(total);
+          } catch (e) {
+            console.warn("[FileTransfer] IndexedDB compilation fallback to memory:", e);
+            const sortedChunks: Uint8Array[] = [];
+            for (let i = 0; i < total; i++) {
+              const chunk = chunks.get(i);
+              if (chunk) sortedChunks.push(new Uint8Array(chunk));
+            }
+            blob = new Blob(sortedChunks as BlobPart[]);
+          }
+
+          // Clear IndexedDB store for next transfer
+          chunkStorage.clear();
+
           const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = url;

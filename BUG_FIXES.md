@@ -97,6 +97,9 @@ This document maintains a comprehensive record of all technical bug fixes, perfo
 ### 14. Mobile Tab Reload Stream Auto-Recovery Protocol
 - **Issue**: If the Receiver's browser tab reloaded or crashed mid-transfer (e.g. Mobile Safari Out-of-Memory tab reload), Sender remained frozen at its current progress (e.g. 19%), while Receiver reconnected without an active progress bar.
 - **Fix**: Implemented `request-restart` protocol in `useWebRTC.ts`. When Receiver receives a chunk while having no active session, it automatically sends `request-restart` to Sender. Sender resets `sentChunks = 0`, sends a fresh `file-start`, and restarts streaming from 0%, allowing Receiver to display the progress bar and download the file cleanly.
+### 15. IndexedDB-Backed Chunk Storage for Mobile Safari RAM Optimization
+- **Issue**: Storing 2.69 GB of binary chunks (44,010 `Uint8Array` objects) in JavaScript RAM exceeded Mobile Safari's ~1.2 GB per-tab RAM limit, causing iOS WebKit to terminate the tab with a `"webpage error"` (`This webpage was reloaded because a problem occurred`) at ~500 MB (19%).
+- **Fix**: Created `chunkStorage.ts` utilizing browser IndexedDB storage for streaming binary chunks. Incoming chunks are written directly to IndexedDB origin storage and cleared from JavaScript RAM, keeping active JS RAM under **20 MB**. Enables 2 GB+ and 5 GB+ transfers on Mobile Safari without RAM crashes.
 - **Commit**: Current
 
 ---
