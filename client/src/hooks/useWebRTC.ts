@@ -891,6 +891,16 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     [createPeerConnection]
   );
 
+  const waitForBuffer = useCallback(async (maxBuffered = 4 * 1024 * 1024) => {
+    while (
+      dataChannelRef.current &&
+      dataChannelRef.current.readyState === "open" &&
+      dataChannelRef.current.bufferedAmount > maxBuffered
+    ) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  }, []);
+
   const sendFile = useCallback(
     async (file: File) => {
       if (!connected) {
@@ -908,12 +918,13 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
       const chunkSize = 64 * 1024; // 64KB chunks
       const totalChunks = Math.ceil(file.size / chunkSize);
-      let sentChunks = 0;
+      const transferId = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
       const startTime = Date.now();
 
-      // Send file-start notification to target peer so both devices lock controls immediately
+      // Send file-start notification to target peer
       sendDataToPeer({
         type: "file-start",
+        transferId,
         fileName: file.name,
         fileSize: file.size,
         totalChunks,
@@ -930,26 +941,16 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         direction: "send",
       });
 
-      const reader = new FileReader();
-
-      const checkPauseOrCancel = async (): Promise<boolean> => {
-        while (isPausedRef.current && !isCancelledRef.current) {
-          await new Promise((r) => setTimeout(r, 100));
-        }
-        return isCancelledRef.current;
-      };
-
       lastAckedChunkIndexRef.current = -1;
       resumeFromChunkRef.current = null;
 
-      const sendChunk = async (start: number) => {
+      for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
         // Auto-resume check: if peer requested a resume from chunk index N
         if (resumeFromChunkRef.current !== null) {
           const resumeIdx = resumeFromChunkRef.current;
           resumeFromChunkRef.current = null;
-          sentChunks = resumeIdx;
-          start = resumeIdx * chunkSize;
-          console.log(`[WebRTC Auto-Resume] Resuming sender stream at chunk #${resumeIdx} (${start} bytes)`);
+          chunkIdx = Math.min(resumeIdx, totalChunks - 1);
+          console.log(`[WebRTC Auto-Resume] Resuming sender stream at chunk #${chunkIdx}`);
         }
 
         if (isCancelledRef.current) {
@@ -960,128 +961,76 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
           return;
         }
 
-        if (isPausedRef.current) {
-          const cancelled = await checkPauseOrCancel();
-          if (cancelled) {
-            setTransferProgress(null);
-            setIsPaused(false);
-            isPausedRef.current = false;
-            return;
-          }
+        while (isPausedRef.current && !isCancelledRef.current) {
+          await new Promise((r) => setTimeout(r, 100));
         }
 
-        if (start >= file.size) {
-          let currentPausedDuration = totalPausedDurationRef.current;
-          const elapsed = Math.max((Date.now() - startTime - currentPausedDuration) / 1000, 0.1);
-          setTransferProgress({
-            fileName: file.name,
-            progress: totalChunks,
-            total: totalChunks,
-            fileSizeBytes: file.size,
-            transferredBytes: file.size,
-            speed: file.size / elapsed / (1024 * 1024),
-            timeRemaining: 0,
-            timeElapsed: Math.round(elapsed),
-            direction: "send",
-          });
-
-          sendDataToPeer({
-            type: "file-complete",
-            fileName: file.name,
-            fileSize: file.size,
-            totalChunks,
-          });
-
-          setTimeout(() => {
-            setTransferProgress(null);
-          }, 150);
-
-          console.log(`[WebRTC] File transfer complete: ${file.name}`);
+        if (isCancelledRef.current) {
+          setTransferProgress(null);
+          setIsPaused(false);
+          isPausedRef.current = false;
           return;
         }
 
-        // Window ACK Rate Control for WebSocket relay mode (prevents blasting into disconnected peer)
-        const isP2pOpen = dataChannelRef.current?.readyState === "open";
-        if (!isP2pOpen && sentChunks > 0 && sentChunks % 16 === 0) {
-          let waitAckMs = 0;
-          while (
-            sentChunks - lastAckedChunkIndexRef.current > 16 &&
-            waitAckMs < 2000 &&
-            !isCancelledRef.current
-          ) {
-            await new Promise((r) => setTimeout(r, 100));
-            waitAckMs += 100;
-          }
-        }
-
-        // WebRTC DataChannel flow control if channel is open
-        const channel = dataChannelRef.current;
-        if (channel && channel.readyState === "open" && channel.bufferedAmount > 2 * 1024 * 1024) {
-          channel.onbufferedamountlow = () => {
-            channel.onbufferedamountlow = null;
-            sendChunk(start);
-          };
-          return;
-        }
-
+        const start = chunkIdx * chunkSize;
         const end = Math.min(start + chunkSize, file.size);
-        const blob = file.slice(start, end);
+        const blobSlice = file.slice(start, end);
+        const arrayBuffer = await blobSlice.arrayBuffer();
 
-        reader.onload = async (e) => {
-          if (e.target?.result) {
-            if (isCancelledRef.current) return;
-            if (isPausedRef.current) {
-              const cancelled = await checkPauseOrCancel();
-              if (cancelled) return;
-            }
+        // 4 MB Backpressure control
+        await waitForBuffer(4 * 1024 * 1024);
 
-            const data = e.target.result as ArrayBuffer;
-            const packet = encodeFileChunkPacket(file.name, sentChunks, totalChunks, new Uint8Array(data));
-            const sent = sendDataToPeer(packet);
+        const packet = encodeFileChunkPacket(file.name, chunkIdx, totalChunks, new Uint8Array(arrayBuffer));
+        const sent = sendDataToPeer(packet);
 
-            if (!sent) {
-              setError("Failed to send file chunk");
-              return;
-            }
+        if (!sent) {
+          setError("Failed to send file chunk");
+          return;
+        }
 
-            sentChunks++;
-            let currentPausedDuration = totalPausedDurationRef.current;
-            if (isPausedRef.current && pausedStartTimeRef.current !== null) {
-              currentPausedDuration += Date.now() - pausedStartTimeRef.current;
-            }
-            const elapsed = Math.max((Date.now() - startTime - currentPausedDuration) / 1000, 0.1);
-            const transferredBytes = Math.min(sentChunks * chunkSize, file.size);
-            const speed = transferredBytes / elapsed / (1024 * 1024); // MB/s
-            const remainingBytes = Math.max(file.size - transferredBytes, 0);
-            const timeRemaining = speed > 0 ? (remainingBytes / (1024 * 1024)) / speed : 0;
+        // Non-blocking event loop yield every 4 chunks
+        if (chunkIdx % 4 === 0) {
+          await new Promise((r) => setTimeout(r, 0));
+        }
 
-            setTransferProgress({
-              fileName: file.name,
-              progress: sentChunks,
-              total: totalChunks,
-              fileSizeBytes: file.size,
-              transferredBytes,
-              speed,
-              timeRemaining,
-              timeElapsed: Math.round(elapsed),
-              direction: "send",
-            });
+        let currentPausedDuration = totalPausedDurationRef.current;
+        if (isPausedRef.current && pausedStartTimeRef.current !== null) {
+          currentPausedDuration += Date.now() - pausedStartTimeRef.current;
+        }
+        const elapsed = Math.max((Date.now() - startTime - currentPausedDuration) / 1000, 0.1);
+        const transferredBytes = end;
+        const speed = transferredBytes / elapsed / (1024 * 1024);
+        const remainingBytes = Math.max(file.size - transferredBytes, 0);
+        const timeRemaining = speed > 0 ? (remainingBytes / (1024 * 1024)) / speed : 0;
 
-            // Yield to browser event loop every 4 chunks (256 KB) so Socket.IO ping/pong heartbeats & UI stay 100% responsive
-            if (sentChunks % 4 === 0) {
-              await new Promise((r) => setTimeout(r, 0));
-            }
+        setTransferProgress({
+          fileName: file.name,
+          progress: chunkIdx + 1,
+          total: totalChunks,
+          fileSizeBytes: file.size,
+          transferredBytes,
+          speed,
+          timeRemaining,
+          timeElapsed: Math.round(elapsed),
+          direction: "send",
+        });
+      }
 
-            sendChunk(end);
-          }
-        };
+      sendDataToPeer({
+        type: "file-complete",
+        transferId,
+        fileName: file.name,
+        fileSize: file.size,
+        totalChunks,
+      });
 
-        reader.readAsArrayBuffer(blob);
-      };
+      setTimeout(() => {
+        setTransferProgress(null);
+      }, 150);
 
-      sendChunk(0);
+      console.log(`[WebRTC] File transfer complete: ${file.name}`);
     },
-    [connected, sendDataToPeer]
+    [sendDataToPeer, connected]
   );
 
   const receiveFile = useCallback((onChunk: (data: any) => void, onComplete: (data: any) => void) => {

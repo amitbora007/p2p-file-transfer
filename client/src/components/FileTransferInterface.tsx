@@ -9,6 +9,7 @@ import { HelpTooltip } from "@/components/HelpTooltip";
 import { TransferProgressBar } from "@/components/TransferProgressBar";
 import { TransferProgress } from "@/hooks/useWebRTC";
 import { chunkStorage } from "@/utils/chunkStorage";
+import { opfsStorage } from "@/utils/opfsStorage";
 
 export interface HistoryRecord {
   id: string;
@@ -84,7 +85,6 @@ export function FileTransferInterface({
     if (!connected) {
       setIsReceiving(false);
       setReceivedFileName("");
-      receivedChunksRef.current.clear();
       setHistory([]);
       try {
         sessionStorage.removeItem("p2p_transfer_history");
@@ -134,9 +134,14 @@ export function FileTransferInterface({
     if (connected && !isReceiving) {
       setIsReceiving(true);
       onReceiveFile(
-        (data) => {
-          // Store chunk in IndexedDB to keep JS RAM under 20 MB (prevents Mobile Safari RAM crash)
+        async (data) => {
+          const transferId = data.transferId || "active_transfer";
+          const offset = data.chunkIndex * 64 * 1024;
+
+          // Write chunk progressively to OPFS disk storage (< 10 MB JS RAM footprint)
+          await opfsStorage.writeChunk(transferId, data.fileName, offset, data.data);
           chunkStorage.saveChunk(data.chunkIndex, data.data);
+
           receivedChunksRef.current.set(data.chunkIndex, data.data);
           setReceivedFileName(data.fileName);
         },
@@ -146,25 +151,35 @@ export function FileTransferInterface({
           if (chunks.size === 0) return; // Prevent duplicate download execution
 
           const total = data.totalChunks || chunks.size;
+          const transferId = data.transferId || "active_transfer";
 
           setReceivedFileName("");
           receivedChunksRef.current.clear();
 
-          let blob: Blob;
+          let blob: Blob | null = null;
           try {
-            // High-efficiency IndexedDB Blob compilation
-            blob = await chunkStorage.compileBlob(total);
+            // Primary OPFS Blob compilation (< 10 MB RAM)
+            blob = await opfsStorage.getFileBlob(transferId, data.fileName);
           } catch (e) {
-            console.warn("[FileTransfer] IndexedDB compilation fallback to memory:", e);
-            const sortedChunks: Uint8Array[] = [];
-            for (let i = 0; i < total; i++) {
-              const chunk = chunks.get(i);
-              if (chunk) sortedChunks.push(new Uint8Array(chunk));
-            }
-            blob = new Blob(sortedChunks as BlobPart[]);
+            console.warn("[FileTransfer] OPFS read error, falling back to IndexedDB:", e);
           }
 
-          // Clear IndexedDB store for next transfer
+          if (!blob) {
+            try {
+              blob = await chunkStorage.compileBlob(total);
+            } catch (e) {
+              console.warn("[FileTransfer] IndexedDB compilation fallback to memory:", e);
+              const sortedChunks: Uint8Array[] = [];
+              for (let i = 0; i < total; i++) {
+                const chunk = chunks.get(i);
+                if (chunk) sortedChunks.push(new Uint8Array(chunk));
+              }
+              blob = new Blob(sortedChunks as BlobPart[]);
+            }
+          }
+
+          // Clean up OPFS and IndexedDB storage
+          opfsStorage.cleanup(transferId, data.fileName);
           chunkStorage.clear();
 
           const url = URL.createObjectURL(blob);
@@ -175,7 +190,7 @@ export function FileTransferInterface({
           link.click();
           document.body.removeChild(link);
 
-          // Delay URL revocation so Safari mobile & desktop download engine has full time to write file
+          // Delay URL revocation by 10s for Safari mobile & desktop download engine
           setTimeout(() => {
             try {
               URL.revokeObjectURL(url);

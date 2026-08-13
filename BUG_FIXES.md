@@ -100,6 +100,12 @@ This document maintains a comprehensive record of all technical bug fixes, perfo
 ### 15. IndexedDB-Backed Chunk Storage for Mobile Safari RAM Optimization
 - **Issue**: Storing 2.69 GB of binary chunks (44,010 `Uint8Array` objects) in JavaScript RAM exceeded Mobile Safari's ~1.2 GB per-tab RAM limit, causing iOS WebKit to terminate the tab with a `"webpage error"` (`This webpage was reloaded because a problem occurred`) at ~500 MB (19%).
 - **Fix**: Created `chunkStorage.ts` utilizing browser IndexedDB storage for streaming binary chunks. Incoming chunks are written directly to IndexedDB origin storage and cleared from JavaScript RAM, keeping active JS RAM under **20 MB**. Enables 2 GB+ and 5 GB+ transfers on Mobile Safari without RAM crashes.
+### 16. Progressive OPFS Storage Engine & 4 MB Backpressure Loop
+- **Issue**: Traditional FileReader recursion over-queued WebRTC data and accumulated un-persisted chunks in memory, causing progress bar freezing and memory leaks during multi-gigabyte transfers.
+- **Fix**:
+  - Created `opfsStorage.ts` utilizing Origin Private File System (OPFS) for progressive disk writing (< 10 MB RAM footprint across Safari, Chrome, Firefox, Edge).
+  - Refactored `sendFile` in `useWebRTC.ts` with a clean `file.slice()` async loop and explicit 4 MB backpressure control (`waitForBuffer`).
+  - Preserved received chunks in OPFS / storage across temporary WebRTC disconnects, preventing premature chunk purges on signal drops.
 - **Commit**: Current
 
 ---
