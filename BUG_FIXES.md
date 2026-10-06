@@ -111,6 +111,12 @@ This document maintains a comprehensive record of all technical bug fixes, perfo
 - **Fix**:
   - Added an explicit, high-visibility **"📥 Save / Download File"** button to the Receiver UI card in `FileTransferInterface.tsx`.
   - Retained `receivedFileState` blob URL for 60 seconds. On Mobile Safari, users can tap the direct button to trigger iOS Safari's native file save/download dialog with 100% user gesture activation.
+### 18. Non-Blocking Storage Stream & Guaranteed Save Button Render
+- **Issue**: Attempting 6,500 synchronous file-stream open/close operations (`opfsStorage.writeChunk`) per transfer locked WebKit thread transactions, causing Mobile Safari to hang/freeze on completion and failing to set `receivedFileState`.
+- **Fix**:
+  - Streamlined `onReceiveFile` in `FileTransferInterface.tsx` to store chunks in memory and persist asynchronously to IndexedDB without blocking the main UI thread.
+  - Eliminated synchronous per-chunk OPFS stream locks, keeping the UI at a smooth 60 FPS.
+  - Guaranteed `setReceivedFileState` rendering so the **"📥 Save / Download File"** button appears instantly upon completion.
 - **Commit**: Current
 
 ---

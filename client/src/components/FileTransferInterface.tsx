@@ -139,15 +139,10 @@ export function FileTransferInterface({
     if (connected && !isReceiving) {
       setIsReceiving(true);
       onReceiveFile(
-        async (data) => {
-          const transferId = data.transferId || "active_transfer";
-          const offset = data.chunkIndex * 64 * 1024;
-
-          // Write chunk progressively to OPFS disk storage (< 10 MB JS RAM footprint)
-          await opfsStorage.writeChunk(transferId, data.fileName, offset, data.data);
-          chunkStorage.saveChunk(data.chunkIndex, data.data);
-
+        (data) => {
+          // Store chunk in memory & save asynchronously to IndexedDB without blocking UI thread
           receivedChunksRef.current.set(data.chunkIndex, data.data);
+          chunkStorage.saveChunk(data.chunkIndex, data.data);
           setReceivedFileName(data.fileName);
         },
         async (data) => {
@@ -156,46 +151,43 @@ export function FileTransferInterface({
           if (chunks.size === 0) return; // Prevent duplicate download execution
 
           const total = data.totalChunks || chunks.size;
-          const transferId = data.transferId || "active_transfer";
 
           setReceivedFileName("");
-          receivedChunksRef.current.clear();
 
           let blob: Blob | null = null;
           try {
-            // Primary OPFS Blob compilation (< 10 MB RAM)
-            blob = await opfsStorage.getFileBlob(transferId, data.fileName);
+            // High-efficiency IndexedDB Blob compilation
+            blob = await chunkStorage.compileBlob(total);
           } catch (e) {
-            console.warn("[FileTransfer] OPFS read error, falling back to IndexedDB:", e);
+            console.warn("[FileTransfer] IndexedDB compilation fallback to memory:", e);
           }
 
-          if (!blob) {
-            try {
-              blob = await chunkStorage.compileBlob(total);
-            } catch (e) {
-              console.warn("[FileTransfer] IndexedDB compilation fallback to memory:", e);
-              const sortedChunks: Uint8Array[] = [];
-              for (let i = 0; i < total; i++) {
-                const chunk = chunks.get(i);
-                if (chunk) sortedChunks.push(new Uint8Array(chunk));
-              }
-              blob = new Blob(sortedChunks as BlobPart[]);
+          if (!blob || blob.size === 0) {
+            const sortedChunks: Uint8Array[] = [];
+            for (let i = 0; i < total; i++) {
+              const chunk = chunks.get(i);
+              if (chunk) sortedChunks.push(new Uint8Array(chunk));
             }
+            blob = new Blob(sortedChunks as BlobPart[]);
           }
 
-          // Clean up OPFS and IndexedDB storage
-          opfsStorage.cleanup(transferId, data.fileName);
+          // Clear stored chunks
+          receivedChunksRef.current.clear();
           chunkStorage.clear();
 
           const url = URL.createObjectURL(blob);
           setReceivedFileState({ fileName: data.fileName, url });
 
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = data.fileName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          try {
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = data.fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          } catch (e) {
+            console.warn("[FileTransfer] Auto click ignored by mobile browser:", e);
+          }
 
           // Retain Blob URL for 60s so user can tap manual Save button on Mobile Safari
           setTimeout(() => {
