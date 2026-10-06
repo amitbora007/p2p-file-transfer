@@ -45,6 +45,7 @@ export function FileTransferInterface({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const receivedChunksRef = useRef<Map<number, any>>(new Map());
   const [receivedFileName, setReceivedFileName] = useState<string>("");
+  const [receivedFileState, setReceivedFileState] = useState<{ fileName: string; url: string } | null>(null);
   const [isReceiving, setIsReceiving] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -85,12 +86,16 @@ export function FileTransferInterface({
     if (!connected) {
       setIsReceiving(false);
       setReceivedFileName("");
+      if (receivedFileState?.url) {
+        try { URL.revokeObjectURL(receivedFileState.url); } catch (e) {}
+      }
+      setReceivedFileState(null);
       setHistory([]);
       try {
         sessionStorage.removeItem("p2p_transfer_history");
       } catch (e) {}
     }
-  }, [connected]);
+  }, [connected, receivedFileState]);
 
   // Track previous transferProgress to log completed/failed transfers
   const prevProgressRef = useRef<TransferProgress | null>(null);
@@ -183,6 +188,8 @@ export function FileTransferInterface({
           chunkStorage.clear();
 
           const url = URL.createObjectURL(blob);
+          setReceivedFileState({ fileName: data.fileName, url });
+
           const link = document.createElement("a");
           link.href = url;
           link.download = data.fileName;
@@ -190,12 +197,12 @@ export function FileTransferInterface({
           link.click();
           document.body.removeChild(link);
 
-          // Delay URL revocation by 10s for Safari mobile & desktop download engine
+          // Retain Blob URL for 60s so user can tap manual Save button on Mobile Safari
           setTimeout(() => {
             try {
               URL.revokeObjectURL(url);
             } catch (e) {}
-          }, 10000);
+          }, 60000);
 
           // Log completion in session history ONCE
           addHistoryRecord({
@@ -454,15 +461,26 @@ export function FileTransferInterface({
                     }}
                   />
                 </div>
-              ) : receivedFileName ? (
-                <div className="space-y-2">
+              ) : receivedFileState ? (
+                <div className="space-y-3">
                   <div className="flex items-center gap-2.5 p-3.5 bg-emerald-950/30 border border-emerald-500/30 rounded-xl">
                     <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
-                    <div>
-                      <p className="font-semibold text-sm text-emerald-200">{receivedFileName}</p>
-                      <p className="text-xs text-emerald-400">File received and saved to downloads</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm text-emerald-200 truncate">{receivedFileState.fileName}</p>
+                      <p className="text-xs text-emerald-400">File received successfully!</p>
                     </div>
                   </div>
+
+                  <a
+                    href={receivedFileState.url}
+                    download={receivedFileState.fileName}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    Save / Download File
+                  </a>
                 </div>
               ) : (
                 <div className="text-center py-8 space-y-2">

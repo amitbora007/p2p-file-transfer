@@ -106,6 +106,11 @@ This document maintains a comprehensive record of all technical bug fixes, perfo
   - Created `opfsStorage.ts` utilizing Origin Private File System (OPFS) for progressive disk writing (< 10 MB RAM footprint across Safari, Chrome, Firefox, Edge).
   - Refactored `sendFile` in `useWebRTC.ts` with a clean `file.slice()` async loop and explicit 4 MB backpressure control (`waitForBuffer`).
   - Preserved received chunks in OPFS / storage across temporary WebRTC disconnects, preventing premature chunk purges on signal drops.
+### 17. Explicit Mobile Safari "Save / Download File" Button
+- **Issue**: On Mobile Safari (iOS iPhone/iPad), programmatic anchor clicks (`link.click()`) on `blob:` URLs inside async completion callbacks are blocked by iOS WebKit's strict user activation security policy. Receiver showed *"File received and saved to downloads"* in UI, but Mobile Safari did not open or prompt for file download.
+- **Fix**:
+  - Added an explicit, high-visibility **"📥 Save / Download File"** button to the Receiver UI card in `FileTransferInterface.tsx`.
+  - Retained `receivedFileState` blob URL for 60 seconds. On Mobile Safari, users can tap the direct button to trigger iOS Safari's native file save/download dialog with 100% user gesture activation.
 - **Commit**: Current
 
 ---
