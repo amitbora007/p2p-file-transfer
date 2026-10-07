@@ -279,7 +279,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
           startSilentAudio();
         }
 
-        // Reset stalled/closed WebRTC DataChannel so transfers transparently fall back to WebSocket relay
+        // Reset stalled/closed WebRTC DataChannel so peer connection can re-establish DataChannel
         if (dataChannelRef.current && dataChannelRef.current.readyState !== "open") {
           console.log(`[Screen Unlock] Resetting stalled DataChannel state (${dataChannelRef.current.readyState})`);
           dataChannelRef.current = null;

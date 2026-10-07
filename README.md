@@ -12,23 +12,22 @@ A fast, resilient, and secure peer-to-peer file transfer application designed fo
           ┌───────────────┴───────────────┐
           │                               │
     [Vercel / Local]              [Render / Local]
-     React Frontend             Node.js Signaling & Relay
+     React Frontend             Node.js Signaling ONLY
   p2p-transfer.vercel.app        p2p-signal.onrender.com
           │                               │
    Sender (Browser) ◄─── WebRTC P2P ────► Receiver (Browser)
-          │            (DataChannel)              │
-          │                                       │
-          └─── Hybrid Socket.IO Relay Fallback ───┘
-                (For strict 4G/5G CG-NATs)
+          │         (RTCDataChannel / TURN)   │
+          └───────────────────────────────────┘
+               (Zero file data through server)
 ```
 
-### Multi-Layer Hybrid Data Transfer Protocol
+### Pure WebRTC P2P Data Transfer Architecture
 
-1. **Layer 1: WebRTC DataChannel (Direct P2P)**: Direct peer-to-peer binary chunk streaming using native browser `RTCPeerConnection` and `RTCDataChannel` APIs. Zero server bandwidth overhead.
-2. **Layer 2: Hybrid Socket.IO Relay Fallback**: If Carrier-Grade NAT (CG-NAT on 4G/5G mobile networks) or strict corporate firewalls block direct UDP/TCP hole punching, the app automatically enables Socket.IO data relaying after 2.5 seconds. **Guarantees 100% connectivity on any network.**
-3. **Layer 3: Chunk ACK & Automatic Mid-Transfer Resume**:
-   - **Window-Based Flow Control**: Chunks stream in 16-chunk (1 MB) window limits, requiring receipt acknowledgments (`chunk-ack`) to prevent sender buffer overflows during network dips.
-   - **Auto-Resume Handshake**: If a 4G connection flickers and reconnects mid-transfer, the receiver sends a `request-resume` with its last received chunk index (`N`). The sender automatically rewinds and resumes streaming seamlessly from chunk `N + 1` without restarting the download.
+1. **Layer 1: WebRTC DataChannel (Direct P2P)**: Direct peer-to-peer binary chunk streaming using native browser `RTCPeerConnection` and `RTCDataChannel` APIs. Zero server bandwidth consumption.
+2. **Layer 2: Standard STUN / TURN Relay**: If Carrier-Grade NAT (CG-NAT on 4G/5G mobile networks) or strict symmetric corporate firewalls block direct UDP hole punching, the connection traverses standard TURN relays (OpenRelay / custom TURN) exclusively over WebRTC DataChannels. The Node.js signaling server never routes file payloads.
+3. **Layer 3: Zero-RAM OPFS Streaming & Two-Way Verification**:
+   - **Progressive Disk Streaming**: Chunks stream directly to the Origin Private File System via a dedicated Web Worker using `createSyncAccessHandle()`, capping heap memory under 20 MB even for 5+ GB files on Mobile Safari.
+   - **Contiguous Tracking & NACK Recovery**: Receivers track chunks via bitsets, detect missing gaps, and request targeted retransmissions before two-way verification confirms transfer integrity.
 
 ---
 

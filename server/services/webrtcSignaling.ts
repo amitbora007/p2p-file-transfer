@@ -31,9 +31,8 @@ class WebRTCSignalingService {
       : "*";
 
     // Senior Backend Socket.IO Tuning:
-    // - pingInterval: 25s & pingTimeout: 20s -> generous thresholds to prevent disconnects during heavy P2P/relay streaming
-    // - maxHttpBufferSize: 10MB cap per chunk payload
-    // - perMessageDeflate: false -> disable compression to reduce CPU overhead on high-throughput binary chunks
+    // Pure Signaling Server for WebRTC SDP offers/answers & ICE candidates (~1-2 KB payloads).
+    // All file data and chunks stream strictly via RTCDataChannel (or TURN relay).
     this.io = new SocketIOServer(httpServer, {
       cors: {
         origin: corsOrigin,
@@ -42,8 +41,6 @@ class WebRTCSignalingService {
       transports: ["websocket", "polling"],
       pingInterval: 25000,
       pingTimeout: 20000,
-      maxHttpBufferSize: 10 * 1024 * 1024,
-      perMessageDeflate: false,
     });
 
     this.setupEventHandlers();
