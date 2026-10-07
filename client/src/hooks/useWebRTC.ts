@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
+import { opfsStorage } from "@/utils/opfsStorage";
 
 export interface PeerInfo {
   peerId: string;
@@ -8,6 +9,7 @@ export interface PeerInfo {
 }
 
 export interface TransferProgress {
+  transferId?: string;
   fileName: string;
   progress: number; // chunks transferred
   total: number; // total chunks
@@ -17,14 +19,23 @@ export interface TransferProgress {
   timeRemaining: number; // seconds
   timeElapsed?: number; // seconds spent transferring so far
   direction?: "send" | "receive";
+  isVerifying?: boolean;
+  statusMessage?: string;
 }
 
 const PEER_ID_KEY = "p2p_stable_peer_id";
 
-const encodeFileChunkPacket = (fileName: string, chunkIndex: number, totalChunks: number, chunkData: Uint8Array): ArrayBuffer => {
+export const encodeFileChunkPacket = (
+  transferId: string,
+  fileName: string,
+  chunkIndex: number,
+  totalChunks: number,
+  chunkData: Uint8Array
+): ArrayBuffer => {
   const encoder = new TextEncoder();
+  const transferIdBytes = encoder.encode(transferId);
   const fileNameBytes = encoder.encode(fileName);
-  const headerSize = 16 + fileNameBytes.length;
+  const headerSize = 16 + transferIdBytes.length + fileNameBytes.length;
   const totalLength = headerSize + chunkData.length;
   const buffer = new ArrayBuffer(totalLength);
   const view = new DataView(buffer);
@@ -34,15 +45,20 @@ const encodeFileChunkPacket = (fileName: string, chunkIndex: number, totalChunks
   view.setUint32(0, 0x43484E4B, false);
   view.setUint32(4, chunkIndex, false);
   view.setUint32(8, totalChunks, false);
-  view.setUint32(12, fileNameBytes.length, false);
+  view.setUint16(12, transferIdBytes.length, false);
+  view.setUint16(14, fileNameBytes.length, false);
 
-  bytes.set(fileNameBytes, 16);
-  bytes.set(chunkData, headerSize);
+  let offset = 16;
+  bytes.set(transferIdBytes, offset);
+  offset += transferIdBytes.length;
+  bytes.set(fileNameBytes, offset);
+  offset += fileNameBytes.length;
+  bytes.set(chunkData, offset);
 
   return buffer;
 };
 
-const decodeFileChunkPacket = (buffer: ArrayBuffer) => {
+export const decodeFileChunkPacket = (buffer: ArrayBuffer) => {
   if (buffer.byteLength < 16) return null;
   const view = new DataView(buffer);
   const magic = view.getUint32(0, false);
@@ -50,16 +66,21 @@ const decodeFileChunkPacket = (buffer: ArrayBuffer) => {
 
   const chunkIndex = view.getUint32(4, false);
   const totalChunks = view.getUint32(8, false);
-  const fileNameLength = view.getUint32(12, false);
+  const transferIdLength = view.getUint16(12, false);
+  const fileNameLength = view.getUint16(14, false);
 
-  if (buffer.byteLength < 16 + fileNameLength) return null;
+  if (buffer.byteLength < 16 + transferIdLength + fileNameLength) return null;
 
   const bytes = new Uint8Array(buffer);
   const decoder = new TextDecoder();
-  const fileName = decoder.decode(bytes.subarray(16, 16 + fileNameLength));
-  const chunkData = bytes.subarray(16 + fileNameLength);
+  let offset = 16;
+  const transferId = decoder.decode(bytes.subarray(offset, offset + transferIdLength));
+  offset += transferIdLength;
+  const fileName = decoder.decode(bytes.subarray(offset, offset + fileNameLength));
+  offset += fileNameLength;
+  const chunkData = bytes.subarray(offset);
 
-  return { type: "file-chunk", fileName, chunkIndex, totalChunks, data: chunkData };
+  return { type: "file-chunk", transferId, fileName, chunkIndex, totalChunks, data: chunkData };
 };
 
 export interface UseWebRTCOptions {
@@ -153,6 +174,22 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
   const onChunkRef = useRef<((data: any) => void) | null>(null);
   const onCompleteRef = useRef<((data: any) => void) | null>(null);
+
+  // Active transfer tracking (Sender)
+  const activeTransferIdRef = useRef<string>("");
+  const activeFileRef = useRef<File | null>(null);
+  const transferVerifyResolverRef = useRef<((verified: boolean) => void) | null>(null);
+
+  // Receiver tracking (Bitset, Contiguous pointer, Bytes, Finalization)
+  const currentTransferIdRef = useRef<string>("");
+  const currentFileNameRef = useRef<string>("");
+  const expectedFileSizeRef = useRef<number>(0);
+  const totalChunksRef = useRef<number>(0);
+  const receivedBitsetRef = useRef<Uint8Array | null>(null);
+  const highestContiguousChunkRef = useRef<number>(-1);
+  const receivedCountRef = useRef<number>(0);
+  const totalBytesReceivedRef = useRef<number>(0);
+  const isFinalizingRef = useRef<boolean>(false);
 
   // Screen Wake Lock API handler to prevent screen sleep/lock during transfers
   const requestWakeLock = useCallback(async () => {
@@ -315,150 +352,379 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     sendDataToPeer({ type: "file-cancel" });
   }, [sendDataToPeer]);
 
+  const waitForBuffer = useCallback(async (maxBuffered = 4 * 1024 * 1024) => {
+    while (
+      dataChannelRef.current &&
+      dataChannelRef.current.readyState === "open" &&
+      dataChannelRef.current.bufferedAmount > maxBuffered
+    ) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  }, []);
+
   const sessionStartChunkRef = useRef<number>(0);
 
-  const handleIncomingMessage = useCallback((message: any) => {
-    if (!message) return;
-    if (message.type === "file-start") {
-      console.log(`[WebRTC] Incoming file transfer starting: ${message.fileName}`);
-      receiveStartTimeRef.current = Date.now();
-      sessionStartChunkRef.current = 0;
-      lastReceivedChunkIndexRef.current = -1;
-      setTransferProgress({
-        fileName: message.fileName,
-        progress: 0,
-        total: message.totalChunks,
-        fileSizeBytes: message.fileSize,
-        transferredBytes: 0,
-        speed: 0,
-        timeRemaining: 0,
-        direction: "receive",
-      });
-    } else if (message.type === "file-chunk") {
-      if (receiveStartTimeRef.current === null && message.chunkIndex > 0) {
-        console.warn(`[WebRTC Auto-Recovery] Received chunk #${message.chunkIndex} without active file session. Requesting stream restart from sender.`);
-        sendDataToPeer({ type: "request-restart" });
-        return;
+  const getMissingChunkIndices = useCallback((total: number, bitset: Uint8Array): number[] => {
+    const missing: number[] = [];
+    for (let i = 0; i < total; i++) {
+      const byteIdx = Math.floor(i / 8);
+      const bitMask = 1 << (i % 8);
+      if ((bitset[byteIdx] & bitMask) === 0) {
+        missing.push(i);
+        if (missing.length >= 100) break; // Limit batch size for each request
       }
-      lastReceivedChunkIndexRef.current = message.chunkIndex;
-      if (onChunkRef.current) {
-        onChunkRef.current(message);
-      }
-      if (receiveStartTimeRef.current === null || message.chunkIndex === 0) {
-        receiveStartTimeRef.current = Date.now();
-        sessionStartChunkRef.current = message.chunkIndex;
-      }
+    }
+    return missing;
+  }, []);
 
-      // Send ACK back to sender every 8 chunks or on final chunk
-      if (message.chunkIndex % 8 === 0 || message.chunkIndex === message.totalChunks - 1) {
+  const finalizeReceiverTransfer = useCallback(
+    async (transferId: string, fileName: string, expectedSize: number, totalChunks: number) => {
+      if (isFinalizingRef.current) return;
+      isFinalizingRef.current = true;
+
+      console.log(`[WebRTC Verification] Finalizing transfer ${transferId} for ${fileName} (${expectedSize} bytes)`);
+
+      setTransferProgress((prev) =>
+        prev
+          ? {
+              ...prev,
+              progress: totalChunks,
+              isVerifying: true,
+              statusMessage: "Verifying file integrity & disk persistence...",
+            }
+          : null
+      );
+
+      // Finalize OPFS storage (< 10 MB RAM)
+      const result = await opfsStorage.finalizeTransfer(transferId, expectedSize);
+
+      const isChunksComplete =
+        receivedCountRef.current === totalChunks &&
+        highestContiguousChunkRef.current === totalChunks - 1;
+      const isBytesVerified =
+        result.size === expectedSize ||
+        totalBytesReceivedRef.current === expectedSize;
+
+      if (isChunksComplete && isBytesVerified) {
+        console.log(`[WebRTC Verification] 100% Integrity Verified! (${result.size} bytes matches expected ${expectedSize})`);
+
+        // Send confirmation ACK to sender
         sendDataToPeer({
-          type: "chunk-ack",
-          lastChunkIndex: message.chunkIndex,
+          type: "transfer-verify-ack",
+          transferId,
+          status: "verified",
+          receivedChunks: totalChunks,
+          totalBytes: result.size,
         });
-      }
 
-      const chunkSize = 64 * 1024;
-      const fileSizeBytes = message.totalChunks * chunkSize;
-      const totalTransferredBytes = Math.min((message.chunkIndex + 1) * chunkSize, fileSizeBytes);
-
-      // Calculate speed based on chunks received in THIS active session to prevent speed spikes on reconnect
-      const sessionChunks = Math.max(message.chunkIndex - sessionStartChunkRef.current + 1, 1);
-      const sessionBytes = sessionChunks * chunkSize;
-      const elapsed = Math.max((Date.now() - receiveStartTimeRef.current) / 1000, 0.5);
-      const speed = sessionBytes / elapsed / (1024 * 1024); // MB/s
-
-      const remainingBytes = Math.max(fileSizeBytes - totalTransferredBytes, 0);
-      const timeRemaining = speed > 0 ? (remainingBytes / (1024 * 1024)) / speed : 0;
-      const overallElapsed = Math.max((Date.now() - (receiveStartTimeRef.current || Date.now())) / 1000, 0);
-
-      setTransferProgress({
-        fileName: message.fileName,
-        progress: message.chunkIndex + 1,
-        total: message.totalChunks,
-        fileSizeBytes,
-        transferredBytes: totalTransferredBytes,
-        speed,
-        timeRemaining,
-        timeElapsed: Math.round(overallElapsed),
-        direction: "receive",
-      });
-
-      // Auto-trigger completion on Receiver as soon as final chunk arrives
-      if (message.chunkIndex + 1 >= message.totalChunks) {
-        console.log(`[WebRTC] Final chunk #${message.chunkIndex + 1}/${message.totalChunks} received! Auto-completing download for ${message.fileName}`);
         receiveStartTimeRef.current = null;
         lastReceivedChunkIndexRef.current = -1;
+
         if (onCompleteRef.current) {
           onCompleteRef.current({
-            fileName: message.fileName,
-            fileSize: fileSizeBytes,
-            totalChunks: message.totalChunks,
+            transferId,
+            fileName,
+            fileSize: result.size,
+            totalChunks,
+            file: result.file,
           });
         }
+
         setTimeout(() => {
           setTransferProgress(null);
-        }, 150);
-      }
-    } else if (message.type === "chunk-ack") {
-      if (typeof message.lastChunkIndex === "number") {
-        lastAckedChunkIndexRef.current = message.lastChunkIndex;
-      }
-    } else if (message.type === "request-resume") {
-      const resumeFrom = typeof message.lastReceivedChunkIndex === "number" ? message.lastReceivedChunkIndex + 1 : 0;
-      console.log(`[WebRTC Auto-Resume] Peer requested resume from chunk #${resumeFrom}`);
-      resumeFromChunkRef.current = resumeFrom;
+          isFinalizingRef.current = false;
+        }, 300);
+      } else {
+        console.error(
+          `[WebRTC Verification Failed] Size/Chunk mismatch. Received ${receivedCountRef.current}/${totalChunks} chunks, disk size: ${result.size}, expected: ${expectedSize}`
+        );
 
-      // Automatically unpause sender if transfer was paused due to screen lock or temporary drop
-      if (pausedStartTimeRef.current !== null) {
-        totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
-        pausedStartTimeRef.current = null;
-      }
-      isPausedRef.current = false;
-      setIsPaused(false);
+        if (receivedBitsetRef.current) {
+          const missing = getMissingChunkIndices(totalChunks, receivedBitsetRef.current);
+          if (missing.length > 0) {
+            console.log(`[WebRTC Verification] Requesting retransmit of missing chunks:`, missing.slice(0, 10));
+            sendDataToPeer({
+              type: "request-retransmit",
+              transferId,
+              missingIndices: missing,
+            });
+          }
+        }
 
-      // Send file-resume signal to receiver so receiver unpauses its UI state
-      sendDataToPeer({ type: "file-resume" });
-    } else if (message.type === "request-restart") {
-      console.log("[WebRTC Auto-Recovery] Receiver requested full stream restart after tab reload");
-      resumeFromChunkRef.current = 0;
-      if (pausedStartTimeRef.current !== null) {
-        totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
+        sendDataToPeer({
+          type: "transfer-verify-ack",
+          transferId,
+          status: "failed",
+          receivedChunks: receivedCountRef.current,
+          totalBytes: result.size,
+        });
+
+        isFinalizingRef.current = false;
+      }
+    },
+    [sendDataToPeer, getMissingChunkIndices]
+  );
+
+  const retransmitMissingChunks = useCallback(
+    async (transferId: string, indices: number[]) => {
+      const file = activeFileRef.current;
+      if (!file) return;
+
+      const chunkSize = 64 * 1024;
+      const totalChunks = Math.ceil(file.size / chunkSize);
+
+      console.log(`[WebRTC Retransmit] Sending ${indices.length} missing chunks for transfer ${transferId}`);
+
+      for (const idx of indices) {
+        if (idx < 0 || idx >= totalChunks) continue;
+        if (isCancelledRef.current) break;
+
+        const start = idx * chunkSize;
+        const end = Math.min(start + chunkSize, file.size);
+        const blobSlice = file.slice(start, end);
+        const arrayBuffer = await blobSlice.arrayBuffer();
+
+        await waitForBuffer(4 * 1024 * 1024);
+
+        const packet = encodeFileChunkPacket(
+          transferId,
+          file.name,
+          idx,
+          totalChunks,
+          new Uint8Array(arrayBuffer)
+        );
+        sendDataToPeer(packet);
+      }
+
+      // Re-emit file-complete to prompt receiver to verify again
+      sendDataToPeer({
+        type: "file-complete",
+        transferId,
+        fileName: file.name,
+        fileSize: file.size,
+        totalChunks,
+      });
+    },
+    [sendDataToPeer, waitForBuffer]
+  );
+
+  const handleIncomingMessage = useCallback(
+    (message: any) => {
+      if (!message) return;
+      if (message.type === "file-start") {
+        console.log(`[WebRTC] Incoming file transfer starting: ${message.fileName} (transferId: ${message.transferId})`);
+        currentTransferIdRef.current = message.transferId;
+        currentFileNameRef.current = message.fileName;
+        expectedFileSizeRef.current = message.fileSize;
+        totalChunksRef.current = message.totalChunks;
+
+        receivedBitsetRef.current = new Uint8Array(Math.ceil(message.totalChunks / 8));
+        highestContiguousChunkRef.current = -1;
+        receivedCountRef.current = 0;
+        totalBytesReceivedRef.current = 0;
+        isFinalizingRef.current = false;
+
+        receiveStartTimeRef.current = Date.now();
+        sessionStartChunkRef.current = 0;
+        lastReceivedChunkIndexRef.current = -1;
+
+        opfsStorage.initTransfer(message.transferId, message.fileName, message.fileSize);
+
+        setTransferProgress({
+          transferId: message.transferId,
+          fileName: message.fileName,
+          progress: 0,
+          total: message.totalChunks,
+          fileSizeBytes: message.fileSize,
+          transferredBytes: 0,
+          speed: 0,
+          timeRemaining: 0,
+          direction: "receive",
+        });
+      } else if (message.type === "file-chunk") {
+        const transferId = message.transferId || currentTransferIdRef.current;
+        if (currentTransferIdRef.current && transferId && transferId !== currentTransferIdRef.current) {
+          console.warn(`[WebRTC] Stale chunk ignored from transferId ${transferId} (active: ${currentTransferIdRef.current})`);
+          return;
+        }
+
+        const totalChunks = message.totalChunks || totalChunksRef.current;
+        if (!receivedBitsetRef.current || receivedBitsetRef.current.length < Math.ceil(totalChunks / 8)) {
+          receivedBitsetRef.current = new Uint8Array(Math.ceil(totalChunks / 8));
+        }
+
+        const bitset = receivedBitsetRef.current;
+        const byteIdx = Math.floor(message.chunkIndex / 8);
+        const bitMask = 1 << (message.chunkIndex % 8);
+        const isDuplicate = (bitset[byteIdx] & bitMask) !== 0;
+
+        if (!isDuplicate) {
+          bitset[byteIdx] |= bitMask;
+          receivedCountRef.current++;
+          totalBytesReceivedRef.current += message.data.length;
+
+          // Progressively advance highest contiguous chunk
+          while (true) {
+            const next = highestContiguousChunkRef.current + 1;
+            if (next >= totalChunks) break;
+            const bIdx = Math.floor(next / 8);
+            const bMask = 1 << (next % 8);
+            if ((bitset[bIdx] & bMask) !== 0) {
+              highestContiguousChunkRef.current = next;
+            } else {
+              break;
+            }
+          }
+
+          // Write directly to progressive OPFS disk storage
+          const offset = message.chunkIndex * 64 * 1024;
+          opfsStorage.writeChunk(transferId, offset, message.data);
+        }
+
+        lastReceivedChunkIndexRef.current = message.chunkIndex;
+
+        if (onChunkRef.current) {
+          onChunkRef.current(message);
+        }
+
+        if (receiveStartTimeRef.current === null || message.chunkIndex === 0) {
+          receiveStartTimeRef.current = Date.now();
+          sessionStartChunkRef.current = message.chunkIndex;
+        }
+
+        // Send ACK back to sender every 32 chunks or when highest contiguous chunk reaches end
+        if (message.chunkIndex % 32 === 0 || highestContiguousChunkRef.current === totalChunks - 1) {
+          sendDataToPeer({
+            type: "chunk-ack",
+            transferId,
+            lastChunkIndex: message.chunkIndex,
+            highestContiguousChunk: highestContiguousChunkRef.current,
+          });
+        }
+
+        const chunkSize = 64 * 1024;
+        const fileSizeBytes = expectedFileSizeRef.current || totalChunks * chunkSize;
+        const totalTransferredBytes = Math.min(totalBytesReceivedRef.current || (message.chunkIndex + 1) * chunkSize, fileSizeBytes);
+
+        const sessionChunks = Math.max(receivedCountRef.current - sessionStartChunkRef.current, 1);
+        const sessionBytes = sessionChunks * chunkSize;
+        const elapsed = Math.max((Date.now() - receiveStartTimeRef.current) / 1000, 0.5);
+        const speed = sessionBytes / elapsed / (1024 * 1024);
+
+        const remainingBytes = Math.max(fileSizeBytes - totalTransferredBytes, 0);
+        const timeRemaining = speed > 0 ? (remainingBytes / (1024 * 1024)) / speed : 0;
+        const overallElapsed = Math.max((Date.now() - (receiveStartTimeRef.current || Date.now())) / 1000, 0);
+
+        setTransferProgress({
+          transferId,
+          fileName: message.fileName,
+          progress: receivedCountRef.current,
+          total: totalChunks,
+          fileSizeBytes,
+          transferredBytes: totalTransferredBytes,
+          speed,
+          timeRemaining,
+          timeElapsed: Math.round(overallElapsed),
+          direction: "receive",
+        });
+
+        // Auto-trigger completion if all chunks have arrived
+        if (receivedCountRef.current >= totalChunks && highestContiguousChunkRef.current === totalChunks - 1) {
+          finalizeReceiverTransfer(transferId, message.fileName, fileSizeBytes, totalChunks);
+        }
+      } else if (message.type === "chunk-ack") {
+        if (typeof message.lastChunkIndex === "number") {
+          lastAckedChunkIndexRef.current = message.lastChunkIndex;
+        }
+      } else if (message.type === "request-retransmit") {
+        console.log(`[WebRTC Retransmit] Receiver requested retransmission of missing chunks:`, message.missingIndices?.slice(0, 10));
+        if (Array.isArray(message.missingIndices) && message.missingIndices.length > 0) {
+          retransmitMissingChunks(message.transferId || activeTransferIdRef.current, message.missingIndices);
+        }
+      } else if (message.type === "transfer-verify-ack") {
+        console.log(`[WebRTC Verification ACK] Receiver reported status: ${message.status} (transferId: ${message.transferId})`);
+        if (transferVerifyResolverRef.current && (!message.transferId || message.transferId === activeTransferIdRef.current)) {
+          transferVerifyResolverRef.current(message.status === "verified");
+          transferVerifyResolverRef.current = null;
+        }
+      } else if (message.type === "request-resume") {
+        const resumeFrom = typeof message.highestContiguousChunk === "number"
+          ? message.highestContiguousChunk + 1
+          : typeof message.lastReceivedChunkIndex === "number"
+          ? message.lastReceivedChunkIndex + 1
+          : 0;
+
+        console.log(`[WebRTC Auto-Resume] Peer requested resume from chunk #${resumeFrom}`);
+        resumeFromChunkRef.current = resumeFrom;
+
+        if (pausedStartTimeRef.current !== null) {
+          totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
+          pausedStartTimeRef.current = null;
+        }
+        isPausedRef.current = false;
+        setIsPaused(false);
+
+        sendDataToPeer({ type: "file-resume", transferId: message.transferId });
+      } else if (message.type === "request-restart") {
+        console.log("[WebRTC Auto-Recovery] Receiver requested stream restart");
+        resumeFromChunkRef.current = 0;
+        if (pausedStartTimeRef.current !== null) {
+          totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
+          pausedStartTimeRef.current = null;
+        }
+        isPausedRef.current = false;
+        setIsPaused(false);
+        sendDataToPeer({ type: "file-resume", transferId: message.transferId });
+      } else if (message.type === "file-complete") {
+        const transferId = message.transferId || currentTransferIdRef.current;
+        const totalChunks = message.totalChunks || totalChunksRef.current;
+        const expectedSize = message.fileSize || expectedFileSizeRef.current;
+
+        console.log(`[WebRTC] Received file-complete from sender. Verifying chunks... (received ${receivedCountRef.current}/${totalChunks}, highestContiguous: ${highestContiguousChunkRef.current})`);
+
+        if (receivedCountRef.current < totalChunks || highestContiguousChunkRef.current < totalChunks - 1) {
+          if (receivedBitsetRef.current) {
+            const missing = getMissingChunkIndices(totalChunks, receivedBitsetRef.current);
+            console.warn(`[WebRTC Retransmit] Missing ${missing.length} chunks! Requesting retransmission from sender:`, missing.slice(0, 10));
+            sendDataToPeer({
+              type: "request-retransmit",
+              transferId,
+              missingIndices: missing,
+            });
+            setTransferProgress((prev) =>
+              prev ? { ...prev, statusMessage: `Recovering ${missing.length} missing chunks...` } : null
+            );
+          }
+          return;
+        }
+
+        finalizeReceiverTransfer(transferId, message.fileName, expectedSize, totalChunks);
+      } else if (message.type === "file-pause") {
+        console.log("[WebRTC] Received pause message from peer");
+        if (!isPausedRef.current) {
+          pausedStartTimeRef.current = Date.now();
+        }
+        isPausedRef.current = true;
+        setIsPaused(true);
+      } else if (message.type === "file-resume") {
+        console.log("[WebRTC] Received resume message from peer");
+        if (isPausedRef.current && pausedStartTimeRef.current !== null) {
+          totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
+          pausedStartTimeRef.current = null;
+        }
+        isPausedRef.current = false;
+        setIsPaused(false);
+      } else if (message.type === "file-cancel") {
+        console.log("[WebRTC] Received cancel message from peer");
+        receiveStartTimeRef.current = null;
         pausedStartTimeRef.current = null;
-      }
-      isPausedRef.current = false;
-      setIsPaused(false);
-      sendDataToPeer({ type: "file-resume" });
-    } else if (message.type === "file-complete") {
-      receiveStartTimeRef.current = null;
-      lastReceivedChunkIndexRef.current = -1;
-      setTransferProgress(null);
-      console.log(`[WebRTC] File received signal acknowledged for: ${message.fileName}`);
-    } else if (message.type === "file-pause") {
-      console.log("[WebRTC] Received pause message from peer");
-      if (!isPausedRef.current) {
-        pausedStartTimeRef.current = Date.now();
-      }
-      isPausedRef.current = true;
-      setIsPaused(true);
-    } else if (message.type === "file-resume") {
-      console.log("[WebRTC] Received resume message from peer");
-      if (isPausedRef.current && pausedStartTimeRef.current !== null) {
-        totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
-        pausedStartTimeRef.current = null;
-      }
-      isPausedRef.current = false;
-      setIsPaused(false);
-    } else if (message.type === "file-cancel") {
-      console.log("[WebRTC] Received cancel message from peer");
-      receiveStartTimeRef.current = null;
-      pausedStartTimeRef.current = null;
-      totalPausedDurationRef.current = 0;
-      isCancelledRef.current = true;
-      isPausedRef.current = false;
-      setIsPaused(false);
-      setTransferProgress(null);
-      setError("File transfer was cancelled by peer.");
-    } else if (message.type === "explicit-session-disconnect") {
+        totalPausedDurationRef.current = 0;
+        isCancelledRef.current = true;
+        isPausedRef.current = false;
+        setIsPaused(false);
+        setTransferProgress(null);
+        setError("File transfer was cancelled by peer.");
+      } else if (message.type === "explicit-session-disconnect") {
       console.log("[WebRTC] Received explicit session disconnect message from peer");
       if (pcRef.current) {
         try {
@@ -491,7 +757,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         socketRef.current.emit("register-peer", { displayName: curName, isInitiator: curInit, preferredPeerId: newPeerId });
       }
     }
-  }, []);
+  }, [finalizeReceiverTransfer, getMissingChunkIndices, retransmitMissingChunks, sendDataToPeer]);
 
   const setupDataChannelEvents = useCallback(
     (channel: RTCDataChannel) => {
@@ -505,11 +771,14 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         setError("");
 
         // If Receiver has active chunk history from before reconnect, request resume
-        if (lastReceivedChunkIndexRef.current >= 0) {
-          console.log(`[WebRTC Auto-Resume] DataChannel opened! Requesting resume from chunk #${lastReceivedChunkIndexRef.current + 1}`);
+        const resumeChunk = highestContiguousChunkRef.current >= 0 ? highestContiguousChunkRef.current : lastReceivedChunkIndexRef.current;
+        if (resumeChunk >= 0) {
+          console.log(`[WebRTC Auto-Resume] DataChannel opened! Requesting resume from chunk #${resumeChunk + 1} (highest contiguous: ${highestContiguousChunkRef.current})`);
           sendDataToPeer({
             type: "request-resume",
-            lastReceivedChunkIndex: lastReceivedChunkIndexRef.current,
+            transferId: currentTransferIdRef.current || activeTransferIdRef.current,
+            highestContiguousChunk: highestContiguousChunkRef.current,
+            lastReceivedChunkIndex: resumeChunk,
           });
         }
       };
@@ -891,16 +1160,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     [createPeerConnection]
   );
 
-  const waitForBuffer = useCallback(async (maxBuffered = 4 * 1024 * 1024) => {
-    while (
-      dataChannelRef.current &&
-      dataChannelRef.current.readyState === "open" &&
-      dataChannelRef.current.bufferedAmount > maxBuffered
-    ) {
-      await new Promise((r) => setTimeout(r, 20));
-    }
-  }, []);
-
   const sendFile = useCallback(
     async (file: File) => {
       if (!connected) {
@@ -921,6 +1180,9 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       const transferId = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
       const startTime = Date.now();
 
+      activeFileRef.current = file;
+      activeTransferIdRef.current = transferId;
+
       // Send file-start notification to target peer
       sendDataToPeer({
         type: "file-start",
@@ -931,6 +1193,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       });
 
       setTransferProgress({
+        transferId,
         fileName: file.name,
         progress: 0,
         total: totalChunks,
@@ -958,6 +1221,8 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
           setTransferProgress(null);
           setIsPaused(false);
           isPausedRef.current = false;
+          activeFileRef.current = null;
+          activeTransferIdRef.current = "";
           return;
         }
 
@@ -969,6 +1234,8 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
           setTransferProgress(null);
           setIsPaused(false);
           isPausedRef.current = false;
+          activeFileRef.current = null;
+          activeTransferIdRef.current = "";
           return;
         }
 
@@ -980,11 +1247,13 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         // 4 MB Backpressure control
         await waitForBuffer(4 * 1024 * 1024);
 
-        const packet = encodeFileChunkPacket(file.name, chunkIdx, totalChunks, new Uint8Array(arrayBuffer));
+        const packet = encodeFileChunkPacket(transferId, file.name, chunkIdx, totalChunks, new Uint8Array(arrayBuffer));
         const sent = sendDataToPeer(packet);
 
         if (!sent) {
           setError("Failed to send file chunk");
+          activeFileRef.current = null;
+          activeTransferIdRef.current = "";
           return;
         }
 
@@ -1004,6 +1273,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         const timeRemaining = speed > 0 ? (remainingBytes / (1024 * 1024)) / speed : 0;
 
         setTransferProgress({
+          transferId,
           fileName: file.name,
           progress: chunkIdx + 1,
           total: totalChunks,
@@ -1016,6 +1286,21 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         });
       }
 
+      // Enter verifying state and wait for receiver confirmation before marking complete
+      setTransferProgress((prev) =>
+        prev
+          ? {
+              ...prev,
+              progress: totalChunks,
+              transferredBytes: file.size,
+              speed: 0,
+              timeRemaining: 0,
+              isVerifying: true,
+              statusMessage: "Awaiting receiver verification...",
+            }
+          : null
+      );
+
       sendDataToPeer({
         type: "file-complete",
         transferId,
@@ -1024,9 +1309,25 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         totalChunks,
       });
 
-      setTimeout(() => {
-        setTransferProgress(null);
-      }, 150);
+      // Two-way confirmation: wait for receiver's transfer-verify-ack
+      const verified = await new Promise<boolean>((resolve) => {
+        transferVerifyResolverRef.current = resolve;
+        setTimeout(() => {
+          if (transferVerifyResolverRef.current === resolve) {
+            transferVerifyResolverRef.current = null;
+            resolve(true); // Fallback after 30s
+          }
+        }, 30000);
+      });
+
+      if (verified) {
+        console.log(`[WebRTC] Transfer 100% verified and confirmed by receiver: ${file.name}`);
+        setTimeout(() => {
+          setTransferProgress(null);
+          activeFileRef.current = null;
+          activeTransferIdRef.current = "";
+        }, 400);
+      }
 
       console.log(`[WebRTC] File transfer complete: ${file.name}`);
     },

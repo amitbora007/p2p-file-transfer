@@ -43,7 +43,6 @@ export function FileTransferInterface({
 }: FileTransferInterfaceProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const receivedChunksRef = useRef<Map<number, any>>(new Map());
   const [receivedFileName, setReceivedFileName] = useState<string>("");
   const [receivedFileState, setReceivedFileState] = useState<{ fileName: string; url: string } | null>(null);
   const [isReceiving, setIsReceiving] = useState(false);
@@ -81,7 +80,7 @@ export function FileTransferInterface({
     } catch (e) {}
   };
 
-  // Reset received state & clear session history when disconnected
+  // Reset received UI state when disconnected (preserve session history across reconnects!)
   useEffect(() => {
     if (!connected) {
       setIsReceiving(false);
@@ -90,10 +89,6 @@ export function FileTransferInterface({
         try { URL.revokeObjectURL(receivedFileState.url); } catch (e) {}
       }
       setReceivedFileState(null);
-      setHistory([]);
-      try {
-        sessionStorage.removeItem("p2p_transfer_history");
-      } catch (e) {}
     }
   }, [connected, receivedFileState]);
 
@@ -140,69 +135,51 @@ export function FileTransferInterface({
       setIsReceiving(true);
       onReceiveFile(
         (data) => {
-          // Store chunk in memory & save asynchronously to IndexedDB without blocking UI thread
-          receivedChunksRef.current.set(data.chunkIndex, data.data);
-          chunkStorage.saveChunk(data.chunkIndex, data.data);
           setReceivedFileName(data.fileName);
         },
         async (data) => {
-          // Handle file complete
-          const chunks = receivedChunksRef.current;
-          if (chunks.size === 0) return; // Prevent duplicate download execution
-
-          const total = data.totalChunks || chunks.size;
-
           setReceivedFileName("");
 
-          let blob: Blob | null = null;
-          try {
-            // High-efficiency IndexedDB Blob compilation
-            blob = await chunkStorage.compileBlob(total);
-          } catch (e) {
-            console.warn("[FileTransfer] IndexedDB compilation fallback to memory:", e);
+          let fileBlob: Blob | File | null = data.file || null;
+          if (!fileBlob && data.transferId) {
+            fileBlob = await opfsStorage.getFileBlob(data.transferId, data.fileName);
           }
-
-          if (!blob || blob.size === 0) {
-            const sortedChunks: Uint8Array[] = [];
-            for (let i = 0; i < total; i++) {
-              const chunk = chunks.get(i);
-              if (chunk) sortedChunks.push(new Uint8Array(chunk));
-            }
-            blob = new Blob(sortedChunks as BlobPart[]);
-          }
-
-          // Clear stored chunks
-          receivedChunksRef.current.clear();
-          chunkStorage.clear();
-
-          const url = URL.createObjectURL(blob);
-          setReceivedFileState({ fileName: data.fileName, url });
-
-          try {
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = data.fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          } catch (e) {
-            console.warn("[FileTransfer] Auto click ignored by mobile browser:", e);
-          }
-
-          // Retain Blob URL for 60s so user can tap manual Save button on Mobile Safari
-          setTimeout(() => {
+          if (!fileBlob) {
             try {
-              URL.revokeObjectURL(url);
-            } catch (e) {}
-          }, 60000);
+              fileBlob = await chunkStorage.compileBlob(data.totalChunks || 1);
+            } catch (_) {}
+          }
 
-          // Log completion in session history ONCE
-          addHistoryRecord({
-            fileName: data.fileName,
-            fileSize: blob.size || data.fileSize || 0,
-            direction: "receive",
-            status: "completed",
-          });
+          if (fileBlob) {
+            const url = URL.createObjectURL(fileBlob);
+            setReceivedFileState({ fileName: data.fileName, url });
+
+            try {
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = data.fileName;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            } catch (e) {
+              console.warn("[FileTransfer] Auto click ignored by mobile browser:", e);
+            }
+
+            // Retain Blob URL for 60s so user can tap manual Save button on Mobile Safari
+            setTimeout(() => {
+              try {
+                URL.revokeObjectURL(url);
+              } catch (e) {}
+            }, 60000);
+
+            // Log completion in session history ONCE
+            addHistoryRecord({
+              fileName: data.fileName,
+              fileSize: fileBlob.size || data.fileSize || 0,
+              direction: "receive",
+              status: "completed",
+            });
+          }
         }
       );
     }
@@ -441,7 +418,9 @@ export function FileTransferInterface({
                         onCancelTransfer();
                       }
                       setReceivedFileName("");
-                      receivedChunksRef.current.clear();
+                      if (transferProgress?.transferId) {
+                        opfsStorage.cleanup(transferProgress.transferId, transferProgress.fileName);
+                      }
                       if (transferProgress) {
                         addHistoryRecord({
                           fileName: transferProgress.fileName,

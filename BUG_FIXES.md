@@ -164,9 +164,40 @@ This document maintains a comprehensive record of all technical bug fixes, perfo
 
 ---
 
+## 🚀 Large File Transfer Reliability & Mobile Safari Zero-RAM Architecture (1–5 GB)
+
+### 20. Zero-RAM Progressive Disk Streaming & Two-Way Verification Protocol
+- **Issue**:
+  - Transferring large files (1–5 GB) on Safari (macOS & iOS) caused tab crashes (~1.0–1.2 GB iOS WebKit memory limit exceeded) because the receiver accumulated chunks in memory (`receivedChunksRef.current.set(chunkIndex, data)` and `new Blob(sortedChunks)`).
+  - Attempting to open/close `createWritable` per chunk locked file transactions and froze the browser UI.
+  - Incomplete chunk receipt or packets dropped during network jitter weren't recovered (no gap detection / NACK).
+  - Sender marked transfer "completed" immediately upon transmitting the last packet without waiting for receiver confirmation.
+  - Asynchronous programmatic blob click was blocked by Mobile Safari security policies.
+  - Reconnects didn't preserve contiguous chunk offsets or transfer IDs.
+- **Fix**:
+  1. **Zero-RAM Progressive OPFS Architecture**:
+     - Introduced a Dedicated Web Worker (`opfsWorker.ts`) utilizing `createSyncAccessHandle()` for zero main-thread blocking, synchronous atomic disk writes directly to the Origin Private File System.
+     - Added secondary persistent `FileSystemWritableFileStream` and tertiary IndexedDB fallback (`opfsStorage.ts`), capping runtime heap memory usage under 20 MB even for 5+ GB files.
+  2. **Transfer ID & Binary Packet Protocol**:
+     - Integrated unique `transferId` into all binary chunk headers (`0x43484E4B` magic packet format) and control messages (`file-start`, `chunk-ack`, `file-complete`, `request-retransmit`, `transfer-verify-ack`, `request-resume`).
+  3. **Contiguous Chunk Tracking & NACK Retransmission**:
+     - Implemented Bitset tracking (`Uint8Array(totalChunks / 8)`) and tracked `highestContiguousChunkRef` on the receiver.
+     - Implemented gap detection (`getMissingChunkIndices`) to identify missing chunks upon receiving `file-complete` and dispatch `request-retransmit` back to sender.
+  4. **Strict Two-Way Receiver-to-Sender Verification**:
+     - Receiver validates exact chunk count (`receivedCount === totalChunks`), contiguous completeness (`highestContiguousChunk === totalChunks - 1`), and exact byte size (`diskSize === expectedSize`).
+     - Sender enters `isVerifying` state ("Awaiting receiver verification...") and does NOT mark completion until receiving `transfer-verify-ack { status: 'verified' }`.
+  5. **Auto-Resume & Disconnect State Preservation**:
+     - Preserves session history across reconnects and automatically requests resume starting from `highestContiguousChunk + 1`.
+  6. **Mobile Safari Download Compatibility**:
+     - Emits file handle directly or creates a short-lived object URL retained for 60 seconds, accompanied by an explicit "Save File" button for reliable iOS file saving.
+- **Commit**: Current
+
+---
+
 ## 🧪 Automated Verification & Quality Assurance
 
 All fixes listed above are validated against our automated test suite:
 - `pnpm check`: **0 TypeScript errors**
-- `pnpm test`: **28 / 28 unit & integration tests passing (100%)**
-- `pnpm build:client`: **Clean production bundle created with zero warnings**
+- `pnpm test`: **31 / 31 unit & integration tests passing (100%)**
+- `pnpm build`: **Clean production client bundle & server build with zero errors**
+

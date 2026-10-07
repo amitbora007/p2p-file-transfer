@@ -63,7 +63,11 @@ export function TransferProgressBar({
             {transfer.fileName}
           </p>
           <p className="text-xs text-slate-400 mt-1">
-            {formatBytes(transferredBytes)} of {formatBytes(totalBytes)}
+            {transfer.statusMessage ? (
+              <span className="text-amber-300 font-medium animate-pulse">{transfer.statusMessage}</span>
+            ) : (
+              `${formatBytes(transferredBytes)} of ${formatBytes(totalBytes)}`
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2 ml-4">
