@@ -43,6 +43,15 @@ async function startServer() {
       createContext,
     })
   );
+
+  // Standard HTTP Health Check endpoints (Render, Docker, K8s, Uptime monitors)
+  app.get(["/health", "/api/health"], (_req, res) => {
+    res.status(200).json({
+      status: "ok",
+      uptime: Math.floor(process.uptime()),
+      timestamp: Date.now(),
+    });
+  });
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);
