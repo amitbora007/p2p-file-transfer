@@ -7,7 +7,7 @@ import { HelpTooltip } from "@/components/HelpTooltip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Wifi, WifiOff, LogOut, Share2, Camera, ArrowRight, ShieldCheck } from "lucide-react";
+import { AlertCircle, Wifi, WifiOff, LogOut, Share2, Camera, ArrowRight, ShieldCheck, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function Home() {
@@ -15,6 +15,7 @@ export default function Home() {
   const [displayName, setDisplayName] = useState("My Device");
   const [showScanner, setShowScanner] = useState(false);
   const [manualPeerInput, setManualPeerInput] = useState("");
+  const [isConnecting, setIsConnecting] = useState(false);
 
   // Debounce display name updates to prevent firing socket emissions on every keystroke
   useEffect(() => {
@@ -46,7 +47,14 @@ export default function Home() {
     isInitiator: false,
   });
 
+  useEffect(() => {
+    if (connected || error) {
+      setIsConnecting(false);
+    }
+  }, [connected, error]);
+
   const handleDisconnect = () => {
+    setIsConnecting(false);
     disconnectPeer();
   };
 
@@ -55,6 +63,7 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search);
     const targetPeer = params.get("peer") || params.get("peerId");
     if (targetPeer && isRegistered && !connected) {
+      setIsConnecting(true);
       if (typeof window !== "undefined" && window.history.replaceState) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
@@ -64,6 +73,7 @@ export default function Home() {
 
   const handleScanQR = (data: { peerId: string; displayName: string }) => {
     setShowScanner(false);
+    setIsConnecting(true);
     if (typeof window !== "undefined" && window.history.replaceState) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -74,6 +84,7 @@ export default function Home() {
     e.preventDefault();
     const cleanId = manualPeerInput.trim().toUpperCase();
     if (cleanId) {
+      setIsConnecting(true);
       connectToPeer(cleanId);
     }
   };
@@ -81,7 +92,13 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-950/40 via-slate-950 to-slate-950 text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white">
       {/* Sticky Top Header */}
-      <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl shadow-black/50">
+      <header className="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/80 shadow-2xl shadow-black/50 relative">
+        {/* Top Banner Loading Bar - active while page is registering or peer is connecting */}
+        {(!isRegistered || isConnecting) && (
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-slate-800/60 overflow-hidden z-50">
+            <div className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 animate-indeterminate-bar w-full" />
+          </div>
+        )}
         <div className="max-w-6xl mx-auto px-4 py-3.5 sm:py-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-3">
@@ -98,13 +115,23 @@ export default function Home() {
 
             <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
               <div className="flex items-center gap-2.5">
-                {connected ? (
+                {!isRegistered ? (
+                  <div className="h-8 px-3 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 text-xs font-semibold inline-flex items-center gap-1.5 shadow-inner">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                    Initializing...
+                  </div>
+                ) : connected ? (
                   <div className="h-8 px-3 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-semibold inline-flex items-center gap-1.5 shadow-inner">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
                     Connected
+                  </div>
+                ) : isConnecting ? (
+                  <div className="h-8 px-3 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 text-xs font-semibold inline-flex items-center gap-1.5 shadow-inner">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                    Connecting...
                   </div>
                 ) : (
                   <div className="h-8 px-3 rounded-full bg-slate-900/90 text-slate-400 border border-slate-800 text-xs font-medium inline-flex items-center gap-1.5">
@@ -130,6 +157,10 @@ export default function Home() {
                 content={
                   connected
                     ? "You are paired in an active session. Ready to stream files securely."
+                    : !isRegistered
+                    ? "Registering with signaling network to generate your unique Peer ID."
+                    : isConnecting
+                    ? "Establishing encrypted WebRTC peer-to-peer data channel."
                     : "Not connected to a peer. Scan QR code or enter Peer ID to establish a session."
                 }
               />
@@ -169,19 +200,29 @@ export default function Home() {
                       type="text"
                       value={manualPeerInput}
                       onChange={(e) => setManualPeerInput(e.target.value.toUpperCase())}
+                      disabled={isConnecting}
                       autoCapitalize="characters"
                       autoCorrect="off"
                       spellCheck="false"
                       placeholder="ENTER PEER ID (E.G. 3F9A12)"
-                      className="uppercase w-full sm:flex-1 h-11 px-4 font-mono text-sm font-semibold tracking-wider rounded-xl border border-slate-800 bg-slate-950/70 text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all outline-none"
+                      className="uppercase w-full sm:flex-1 h-11 px-4 font-mono text-sm font-semibold tracking-wider rounded-xl border border-slate-800 bg-slate-950/70 text-slate-100 placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all outline-none disabled:opacity-50"
                     />
                     <Button
                       type="submit"
-                      disabled={!manualPeerInput.trim()}
+                      disabled={!manualPeerInput.trim() || isConnecting}
                       className="w-full sm:w-auto h-11 px-6 rounded-xl font-semibold text-sm bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white shadow-lg shadow-indigo-500/25 transition-all active:scale-[0.98] disabled:opacity-40 flex items-center justify-center gap-2 shrink-0 border-0"
                     >
-                      Connect
-                      <ArrowRight className="w-4 h-4" />
+                      {isConnecting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+                          Connecting...
+                        </>
+                      ) : (
+                        <>
+                          Connect
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
                     </Button>
                   </form>
                   <div className="relative flex items-center justify-center border-t border-slate-800/80 pt-4">

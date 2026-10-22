@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle, X, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { HelpTooltip } from "@/components/HelpTooltip";
 
@@ -16,6 +16,7 @@ export function QRCodeScanner({ onScan, onClose }: QRCodeScannerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string>("");
   const [scanning, setScanning] = useState(true);
+  const [isCameraLoading, setIsCameraLoading] = useState(true);
   const animationFrameRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -28,11 +29,13 @@ export function QRCodeScanner({ onScan, onClose }: QRCodeScannerProps) {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.onloadedmetadata = () => {
+            setIsCameraLoading(false);
             videoRef.current?.play();
             scanQRCode();
           };
         }
       } catch (err) {
+        setIsCameraLoading(false);
         setError("Unable to access camera. Browsers require HTTPS or localhost for camera access on mobile devices. You can use the 'Connect via Peer ID' option to connect directly.");
         console.error("Camera access error:", err);
       }
@@ -140,13 +143,21 @@ export function QRCodeScanner({ onScan, onClose }: QRCodeScannerProps) {
           </Alert>
         )}
 
-        <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
+        <div className="relative bg-black rounded-lg overflow-hidden aspect-video flex items-center justify-center">
           <video
             ref={videoRef}
             className="w-full h-full object-cover"
             playsInline
           />
           <canvas ref={canvasRef} className="hidden" />
+
+          {/* Camera Loading Overlay */}
+          {isCameraLoading && !error && (
+            <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center gap-2 z-10 animate-in fade-in duration-150">
+              <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+              <p className="text-xs font-semibold text-slate-300">Accessing camera...</p>
+            </div>
+          )}
 
           {/* QR scanning overlay */}
           <div className="absolute inset-0 flex items-center justify-center p-4">
@@ -159,8 +170,8 @@ export function QRCodeScanner({ onScan, onClose }: QRCodeScannerProps) {
           </div>
         </div>
 
-        <p className="text-sm text-gray-600 text-center">
-          {scanning ? "Scanning for QR code..." : "QR code detected!"}
+        <p className="text-sm text-gray-400 text-center">
+          {isCameraLoading ? "Starting camera stream..." : scanning ? "Scanning for QR code..." : "QR code detected!"}
         </p>
       </CardContent>
     </Card>
