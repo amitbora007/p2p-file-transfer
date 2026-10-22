@@ -13,12 +13,12 @@ A fast, resilient, and secure peer-to-peer file transfer application designed fo
 ```
                        Internet
                           │
-          ┌───────────────┴───────────────┐
-          │                               │
-    [Vercel / Local]              [Render / Local]
-     React Frontend             Node.js Signaling ONLY
-  p2p-transfer.vercel.app        p2p-signal.onrender.com
-          │                               │
+                 [Render Web Service]
+            Full-Stack Node.js & React SPA
+              p2p-transfer.onrender.com
+                          │
+                          │ Signaling (SDP / ICE)
+                          ▼
    Sender (Browser) ◄─── WebRTC P2P ────► Receiver (Browser)
           │         (RTCDataChannel / TURN)   │
           └───────────────────────────────────┘
@@ -50,7 +50,7 @@ A fast, resilient, and secure peer-to-peer file transfer application designed fo
 - 📊 **Directional Progress Filtering**: Independent Send and Receive progress tracking (`direction: "send" | "receive"`) prevents UI duplication and provides accurate MB/s speed and countdown ETA tracking.
 - 🔒 **Screen Wake Lock & Background Keep-Alive**: Uses the Screen Wake Lock API (`navigator.wakeLock`) and silent audio keep-alive loops to prevent mobile devices from sleeping during long file downloads.
 - 📱 **Instant Startup QR & Camera Scanner**: Rendered QR code, Peer ID, and camera scanning support (`jsQR`) allow instant mobile camera auto-connecting.
-- 📦 **Optimized Rollup Code-Splitting**: Configured `manualChunks` vendor splitting (`vendor-react`, `vendor-ui`, `vendor-qr`, `vendor-net`) in `vite.config.ts` to eliminate large bundle warnings and enable parallel browser caching on Vercel deployments.
+- 📦 **Optimized Rollup Code-Splitting**: Configured `manualChunks` vendor splitting (`vendor-react`, `vendor-ui`, `vendor-qr`, `vendor-net`) in `vite.config.ts` to eliminate large bundle warnings and enable parallel browser caching in production.
 - 🛡️ **pnpm v10 Approved Build Dependencies**: Configured `onlyBuiltDependencies` (`@tailwindcss/oxide`, `esbuild`) in `package.json` to eliminate pnpm install build script warnings.
 - 🧹 **Zero Log Noise**: Pure P2P architecture cleaned of unused cloud/OAuth boilerplate for clean server logs.
 
@@ -62,7 +62,7 @@ A fast, resilient, and secure peer-to-peer file transfer application designed fo
 - **Backend**: Node.js 22, Express 4, Socket.IO 4
 - **P2P & Transport**: Native WebRTC (`RTCPeerConnection` + `RTCDataChannel`), Multi-STUN (Google, Cloudflare) & TURNS Relay support
 - **QR Engine**: `qrcode` (generation) & `jsQR` (camera scanner)
-- **Deployment**: Configured for Vercel (Frontend) + Render / Railway (Signaling & Relay Server)
+- **Deployment**: Unified full-stack deployment on Render (serves React frontend + WebRTC signaling)
 - **Testing**: Vitest for unit and integration testing
 
 ---
@@ -114,25 +114,18 @@ Network / Internet access:
 
 ## 🚀 Deployment Guide
 
-### 1. Deploy Signaling Server to Render
+### Deploy Full-Stack App to Render
 
-1. Create a new **Web Service** on [Render.com](https://render.com) and link your GitHub repo.
-2. Render automatically reads `render.yaml` and configures the Node.js build:
-   - **Build Command**: `npx pnpm install && npx pnpm run build:server`
+1. Create a new **Web Service** on [Render.com](https://render.com) and link your GitHub repository.
+2. Render automatically reads [`render.yaml`](render.yaml) and configures the service:
+   - **Environment**: Node
+   - **Build Command**: `npx pnpm install && npx pnpm run build`
    - **Start Command**: `node dist/index.js`
+   - **Health Check Path**: `/health`
 3. Environment Variables:
    - `NODE_ENV` = `production`
-   - `CORS_ORIGIN` = `https://your-app.vercel.app` (set after Vercel deployment)
-4. Copy your Render service URL (e.g. `https://p2p-signaling.onrender.com`).
-
-### 2. Deploy Frontend to Vercel
-
-1. Create a new project on [Vercel.com](https://vercel.com) and import your GitHub repo.
-2. Vercel automatically detects `vercel.json`:
-   - **Output Directory**: `dist/public`
-3. Environment Variables:
-   - `VITE_SOCKET_URL` = `https://p2p-signaling.onrender.com` (your Render signaling URL)
-4. Click **Deploy**.
+   - `PORT` = `10000` (assigned automatically by Render)
+4. Click **Deploy Web Service**. Render compiles the React frontend (`dist/public`) and Express server (`dist/index.js`), serving both on your Render domain with zero CORS setup required.
 
 ---
 
