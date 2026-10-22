@@ -137,6 +137,15 @@ Network / Internet access:
 
 ---
 
+## 📚 Documentation
+
+Additional technical documentation and guides are available in the [`docs/`](docs/) directory:
+- 📖 [Deployment & Command Guide](docs/DEPLOYMENT.md) - Production and VPS setup instructions.
+- 🛠️ [Bug Fixes & Reliability Changelog](docs/BUG_FIXES.md) - History of all 20 architectural fixes and performance optimizations.
+- 📄 [Architecture & Root Cause Analysis (PDF)](docs/P2P_Transfer_RCA_and_Architecture.pdf) - Detailed WebRTC and OPFS architectural design document.
+
+---
+
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) for details.
