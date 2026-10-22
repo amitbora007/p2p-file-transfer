@@ -197,10 +197,8 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       try {
         const lock = await (navigator as any).wakeLock.request("screen");
         wakeLockRef.current = lock;
-        console.log("[WakeLock] Screen Wake Lock acquired");
         lock.addEventListener("release", () => {
           wakeLockRef.current = null;
-          console.log("[WakeLock] Screen Wake Lock released");
         });
       } catch (err) {
         console.warn("[WakeLock] Failed to acquire Screen Wake Lock:", err);
@@ -273,7 +271,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        console.log("[Screen Unlock] Page visible, restoring session & re-requesting Wake Lock");
         if (connected || transferProgress !== null || remoteIdRef.current) {
           requestWakeLock();
           startSilentAudio();
@@ -281,14 +278,12 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
         // Reset stalled/closed WebRTC DataChannel so peer connection can re-establish DataChannel
         if (dataChannelRef.current && dataChannelRef.current.readyState !== "open") {
-          console.log(`[Screen Unlock] Resetting stalled DataChannel state (${dataChannelRef.current.readyState})`);
           dataChannelRef.current = null;
         }
 
         const socket = socketRef.current;
         if (socket) {
           if (!socket.connected) {
-            console.log("[Screen Unlock] Socket disconnected during lock, forcing reconnect...");
             socket.connect();
           }
 
@@ -307,7 +302,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
         // If receiver was in the middle of a transfer when screen unlocked, send resume request
         if (lastReceivedChunkIndexRef.current >= 0 && remoteIdRef.current) {
-          console.log(`[Screen Unlock Resume] Triggering auto-resume from chunk #${lastReceivedChunkIndexRef.current + 1}`);
           sendDataToPeer({
             type: "request-resume",
             lastReceivedChunkIndex: lastReceivedChunkIndexRef.current,
@@ -382,8 +376,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       if (isFinalizingRef.current) return;
       isFinalizingRef.current = true;
 
-      console.log(`[WebRTC Verification] Finalizing transfer ${transferId} for ${fileName} (${expectedSize} bytes)`);
-
       setTransferProgress((prev) =>
         prev
           ? {
@@ -406,8 +398,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         totalBytesReceivedRef.current === expectedSize;
 
       if (isChunksComplete && isBytesVerified) {
-        console.log(`[WebRTC Verification] 100% Integrity Verified! (${result.size} bytes matches expected ${expectedSize})`);
-
         // Send confirmation ACK to sender
         sendDataToPeer({
           type: "transfer-verify-ack",
@@ -442,7 +432,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         if (receivedBitsetRef.current) {
           const missing = getMissingChunkIndices(totalChunks, receivedBitsetRef.current);
           if (missing.length > 0) {
-            console.log(`[WebRTC Verification] Requesting retransmit of missing chunks:`, missing.slice(0, 10));
             sendDataToPeer({
               type: "request-retransmit",
               transferId,
@@ -472,8 +461,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
       const chunkSize = 64 * 1024;
       const totalChunks = Math.ceil(file.size / chunkSize);
-
-      console.log(`[WebRTC Retransmit] Sending ${indices.length} missing chunks for transfer ${transferId}`);
 
       for (const idx of indices) {
         if (idx < 0 || idx >= totalChunks) continue;
@@ -512,7 +499,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     (message: any) => {
       if (!message) return;
       if (message.type === "file-start") {
-        console.log(`[WebRTC] Incoming file transfer starting: ${message.fileName} (transferId: ${message.transferId})`);
         currentTransferIdRef.current = message.transferId;
         currentFileNameRef.current = message.fileName;
         expectedFileSizeRef.current = message.fileSize;
@@ -637,12 +623,10 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
           lastAckedChunkIndexRef.current = message.lastChunkIndex;
         }
       } else if (message.type === "request-retransmit") {
-        console.log(`[WebRTC Retransmit] Receiver requested retransmission of missing chunks:`, message.missingIndices?.slice(0, 10));
         if (Array.isArray(message.missingIndices) && message.missingIndices.length > 0) {
           retransmitMissingChunks(message.transferId || activeTransferIdRef.current, message.missingIndices);
         }
       } else if (message.type === "transfer-verify-ack") {
-        console.log(`[WebRTC Verification ACK] Receiver reported status: ${message.status} (transferId: ${message.transferId})`);
         if (transferVerifyResolverRef.current && (!message.transferId || message.transferId === activeTransferIdRef.current)) {
           transferVerifyResolverRef.current(message.status === "verified");
           transferVerifyResolverRef.current = null;
@@ -654,7 +638,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
           ? message.lastReceivedChunkIndex + 1
           : 0;
 
-        console.log(`[WebRTC Auto-Resume] Peer requested resume from chunk #${resumeFrom}`);
         resumeFromChunkRef.current = resumeFrom;
 
         if (pausedStartTimeRef.current !== null) {
@@ -666,7 +649,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
         sendDataToPeer({ type: "file-resume", transferId: message.transferId });
       } else if (message.type === "request-restart") {
-        console.log("[WebRTC Auto-Recovery] Receiver requested stream restart");
         resumeFromChunkRef.current = 0;
         if (pausedStartTimeRef.current !== null) {
           totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
@@ -679,8 +661,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         const transferId = message.transferId || currentTransferIdRef.current;
         const totalChunks = message.totalChunks || totalChunksRef.current;
         const expectedSize = message.fileSize || expectedFileSizeRef.current;
-
-        console.log(`[WebRTC] Received file-complete from sender. Verifying chunks... (received ${receivedCountRef.current}/${totalChunks}, highestContiguous: ${highestContiguousChunkRef.current})`);
 
         if (receivedCountRef.current < totalChunks || highestContiguousChunkRef.current < totalChunks - 1) {
           if (receivedBitsetRef.current) {
@@ -700,14 +680,12 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
         finalizeReceiverTransfer(transferId, message.fileName, expectedSize, totalChunks);
       } else if (message.type === "file-pause") {
-        console.log("[WebRTC] Received pause message from peer");
         if (!isPausedRef.current) {
           pausedStartTimeRef.current = Date.now();
         }
         isPausedRef.current = true;
         setIsPaused(true);
       } else if (message.type === "file-resume") {
-        console.log("[WebRTC] Received resume message from peer");
         if (isPausedRef.current && pausedStartTimeRef.current !== null) {
           totalPausedDurationRef.current += Date.now() - pausedStartTimeRef.current;
           pausedStartTimeRef.current = null;
@@ -715,7 +693,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         isPausedRef.current = false;
         setIsPaused(false);
       } else if (message.type === "file-cancel") {
-        console.log("[WebRTC] Received cancel message from peer");
         receiveStartTimeRef.current = null;
         pausedStartTimeRef.current = null;
         totalPausedDurationRef.current = 0;
@@ -725,7 +702,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         setTransferProgress(null);
         setError("File transfer was cancelled by peer.");
       } else if (message.type === "explicit-session-disconnect") {
-      console.log("[WebRTC] Received explicit session disconnect message from peer");
       if (pcRef.current) {
         try {
           pcRef.current.close();
@@ -766,14 +742,12 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       channel.bufferedAmountLowThreshold = 1024 * 1024; // 1MB threshold
 
       channel.onopen = () => {
-        console.log("[WebRTC] Data channel opened");
         setConnected(true);
         setError("");
 
         // If Receiver has active chunk history from before reconnect, request resume
         const resumeChunk = highestContiguousChunkRef.current >= 0 ? highestContiguousChunkRef.current : lastReceivedChunkIndexRef.current;
         if (resumeChunk >= 0) {
-          console.log(`[WebRTC Auto-Resume] DataChannel opened! Requesting resume from chunk #${resumeChunk + 1} (highest contiguous: ${highestContiguousChunkRef.current})`);
           sendDataToPeer({
             type: "request-resume",
             transferId: currentTransferIdRef.current || activeTransferIdRef.current,
@@ -783,9 +757,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         }
       };
 
-      channel.onclose = () => {
-        console.log("[WebRTC] Data channel closed");
-      };
+      channel.onclose = () => {};
 
       channel.onerror = (err) => {
         console.error("[WebRTC] Data channel error:", err);
@@ -814,7 +786,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     (initiator: boolean, remoteId: string) => {
       // Clean up any existing stale connection before initiating a fresh connection
       if (pcRef.current) {
-        console.log("[WebRTC] Closing existing stale RTCPeerConnection before creating fresh one");
         try {
           pcRef.current.close();
         } catch (e) {}
@@ -827,8 +798,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         } catch (e) {}
         dataChannelRef.current = null;
       }
-
-      console.log(`[WebRTC] Creating native RTCPeerConnection (initiator: ${initiator}, remoteId: ${remoteId})`);
 
       try {
         const pc = new RTCPeerConnection({
@@ -850,7 +819,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         };
 
         pc.oniceconnectionstatechange = () => {
-          console.log(`[WebRTC] ICE Connection state: ${pc.iceConnectionState}`);
           if (pc.iceConnectionState === "failed") {
             console.warn("[WebRTC] ICE Connection failed.");
             setConnected(false);
@@ -861,7 +829,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         };
 
         pc.onconnectionstatechange = () => {
-          console.log(`[WebRTC] Connection state: ${pc.connectionState}`);
           if (["failed", "closed"].includes(pc.connectionState)) {
             setConnected(false);
           }
@@ -889,7 +856,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
             });
         } else {
           pc.ondatachannel = (event) => {
-            console.log("[WebRTC] Received remote data channel");
             setupDataChannelEvents(event.channel);
           };
         }
@@ -952,19 +918,16 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
                 sessionStorage.setItem(PEER_ID_KEY, response.peerId);
               } catch (e) {}
               setIsRegistered(true); // ← only NOW is it safe to send signals
-              console.log(`[WebRTC] Registered with peerId: ${response.peerId}`);
             }
         }
       );
     };
 
     socket.on("connect", () => {
-      console.log("[WebRTC] Socket connected");
       registerPeer();
     });
 
     socket.on("signal", async (data: any) => {
-      console.log(`[WebRTC] Received signal: ${data.type}`);
       setRemotePeerInfo({
         peerId: data.from,
         displayName: data.fromDisplayName,
@@ -974,7 +937,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       remoteIdRef.current = data.from;
 
       if (!pcRef.current && data.type === "offer") {
-        console.log(`[WebRTC] Creating peer connection for incoming offer`);
         createPeerConnection(false, data.from);
       }
 
@@ -989,7 +951,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
             if (cand) {
               try {
                 await pcRef.current.addIceCandidate(new RTCIceCandidate(cand));
-                console.log("[WebRTC] Added buffered ICE candidate successfully");
               } catch (e) {
                 console.warn("[WebRTC] Error adding buffered candidate:", e);
               }
@@ -1015,7 +976,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
           if (pc.remoteDescription && pc.remoteDescription.type) {
             await pc.addIceCandidate(new RTCIceCandidate(data.data));
           } else {
-            console.log("[WebRTC] Buffering early ICE candidate until remote description is set");
             pendingCandidatesRef.current.push(data.data);
           }
         }
@@ -1030,7 +990,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     });
 
     socket.on("peer-connected", (data: any) => {
-      console.log(`[WebRTC] Peer connected signal received: ${data.peerId} (${data.displayName})`);
       setRemotePeerInfo({
         peerId: data.peerId,
         displayName: data.displayName || "Connected Peer",
@@ -1042,7 +1001,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       // If receiver was downloading a file when connection re-established,
       // request automatic resume from the last received chunk!
       if (lastReceivedChunkIndexRef.current >= 0) {
-        console.log(`[WebRTC Auto-Resume] Peer connected! Requesting resume from chunk #${lastReceivedChunkIndexRef.current + 1}`);
         sendDataToPeer({
           type: "request-resume",
           lastReceivedChunkIndex: lastReceivedChunkIndexRef.current,
@@ -1051,7 +1009,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
     });
 
     socket.on("peer-disconnected", (data: any) => {
-      console.log(`[WebRTC] Peer disconnected event (explicit: ${!!data?.explicit}): ${data?.peerId}`);
       if (pcRef.current) {
         try {
           pcRef.current.close();
@@ -1062,7 +1019,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
       // If disconnection was implicit (screen lock/temporary drop), pause active transfer instead of tearing down pairing!
       if (!data?.explicit) {
-        console.log("[WebRTC] Implicit socket drop detected - keeping session paired and pausing transfer until auto-reconnect");
         if (!isPausedRef.current) {
           pausedStartTimeRef.current = Date.now();
           isPausedRef.current = true;
@@ -1099,9 +1055,7 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       console.error("[WebRTC] Socket error:", error);
     });
 
-    socket.on("disconnect", () => {
-      console.log("[WebRTC] Socket temporarily disconnected (retaining session state for auto-reconnect)");
-    });
+    socket.on("disconnect", () => {});
 
     return () => {
       if (pcRef.current) {
@@ -1137,7 +1091,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
 
       const normalizedPeerId = targetPeerId.trim().toUpperCase();
 
-      console.log(`[WebRTC] Initiating connection to ${normalizedPeerId}`);
       remoteIdRef.current = normalizedPeerId;
       setError("");
 
@@ -1166,8 +1119,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
         setError("Not connected to peer");
         return;
       }
-
-      console.log(`[WebRTC] Sending file: ${file.name} (${file.size} bytes)`);
 
       isCancelledRef.current = false;
       isPausedRef.current = false;
@@ -1213,11 +1164,9 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
           const resumeIdx = resumeFromChunkRef.current;
           resumeFromChunkRef.current = null;
           chunkIdx = Math.min(resumeIdx, totalChunks - 1);
-          console.log(`[WebRTC Auto-Resume] Resuming sender stream at chunk #${chunkIdx}`);
         }
 
         if (isCancelledRef.current) {
-          console.log("[WebRTC] Transfer cancelled by user");
           setTransferProgress(null);
           setIsPaused(false);
           isPausedRef.current = false;
@@ -1321,15 +1270,12 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
       });
 
       if (verified) {
-        console.log(`[WebRTC] Transfer 100% verified and confirmed by receiver: ${file.name}`);
         setTimeout(() => {
           setTransferProgress(null);
           activeFileRef.current = null;
           activeTransferIdRef.current = "";
         }, 400);
       }
-
-      console.log(`[WebRTC] File transfer complete: ${file.name}`);
     },
     [sendDataToPeer, connected]
   );
@@ -1340,8 +1286,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
   }, []);
 
   const disconnectPeer = useCallback(() => {
-    console.log("[WebRTC] Manually disconnecting peer session & generating new Peer ID...");
-
     const targetPeerId = remoteIdRef.current || remotePeerInfo?.peerId;
 
     if (targetPeerId) {
@@ -1404,7 +1348,6 @@ export function useWebRTC({ displayName, isInitiator }: UseWebRTCOptions) {
             try {
               sessionStorage.setItem(PEER_ID_KEY, response.peerId);
             } catch (e) {}
-            console.log(`[WebRTC] Successfully re-registered with new Peer ID: ${response.peerId}`);
           }
         }
       );
