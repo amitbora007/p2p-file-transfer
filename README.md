@@ -2,6 +2,10 @@
 
 A fast, resilient, and secure peer-to-peer file transfer application designed for local and global networks. Transfer files of any size (from MBs to multi-GBs) directly between devices (PCs, phones, tablets) across **different networks** (5G/4G cellular, Wi-Fi, or Internet) with 100% connection reliability.
 
+<p align="center">
+  <img src="docs/assets/app-screenshot.png" alt="P2P Secure Transfer Dashboard" width="100%" />
+</p>
+
 ---
 
 ## 🏗️ Architecture
